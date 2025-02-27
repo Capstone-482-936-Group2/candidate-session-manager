@@ -28,6 +28,7 @@ This application allows candidates to register for sessions and administrators t
 
 2. Create and activate a virtual environment:
    ```bash
+   cd backend
    python -m venv venv
    # On Windows
    venv\Scripts\activate
@@ -37,7 +38,6 @@ This application allows candidates to register for sessions and administrators t
 
 3. Install dependencies:
    ```bash
-   cd backend
    pip install -r requirements.txt
    ```
 
@@ -72,7 +72,7 @@ This application allows candidates to register for sessions and administrators t
 
 1. Navigate to the frontend directory in a second terminal:
    ```bash
-   cd ../frontend
+   cd frontend
    ```
 
 2. Install dependencies:
