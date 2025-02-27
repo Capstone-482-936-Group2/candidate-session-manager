@@ -22,7 +22,7 @@ This application allows candidates to register for sessions and administrators t
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/candidate-session-manager.git
+   git clone https://github.com/Capstone-482-936-Group2/candidate-session-manager.git
    cd candidate-session-manager
    ```
 
