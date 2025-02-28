@@ -13,7 +13,7 @@ const Register = () => {
     last_name: '',
   });
   const [error, setError] = useState('');
-  const { register } = useAuth();
+  const { register, login } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -34,7 +34,9 @@ const Register = () => {
     
     try {
       await register(formData);
-      navigate('/login');
+      // After successful registration, log the user in
+      await login(formData.email, formData.password);
+      navigate('/dashboard');
     } catch (err) {
       if (err.response && err.response.data) {
         // Format Django REST errors - handle both array and string formats

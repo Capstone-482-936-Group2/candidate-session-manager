@@ -12,7 +12,7 @@ class UserSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         
         # If not admin, remove sensitive fields for other users
-        if request and not request.user.is_admin and instance.id != request.user.id:
+        if request and request.user.is_authenticated and not request.user.is_admin and instance.id != request.user.id:
             # Keep only basic info for other users
             allowed_fields = ['id', 'username', 'first_name', 'last_name']
             return {k: v for k, v in data.items() if k in allowed_fields}
