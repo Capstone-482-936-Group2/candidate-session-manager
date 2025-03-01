@@ -25,15 +25,45 @@ class IsFacultyOrReadOnly(permissions.BasePermission):
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return request.user.is_authenticated
-        return request.user.is_authenticated and request.user.is_faculty
+        return request.user.is_authenticated and request.user.user_type == 'faculty'
+
+class IsAdminOrCandidateOwner(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated
+
+    def has_object_permission(self, request, view, obj):
+        # Allow admin users full access
+        if request.user.is_admin:
+            return True
+        # Allow candidates to manage their own sessions
+        return obj.candidate == request.user
+
+class IsAdminOrSessionOwner(permissions.BasePermission):
+    def has_permission(self, request, view):
+        if request.method in permissions.SAFE_METHODS:
+            return request.user.is_authenticated
+        return request.user.is_authenticated
+
+    def has_object_permission(self, request, view, obj):
+        if request.user.is_admin:
+            return True
+        # For POST requests, check if the user owns the session
+        if request.method == 'POST':
+            session_id = request.data.get('session')
+            try:
+                session = CandidateSession.objects.get(id=session_id)
+                return session.candidate == request.user
+            except CandidateSession.DoesNotExist:
+                return False
+        return obj.session.candidate == request.user
 
 class CandidateSessionViewSet(viewsets.ModelViewSet):
     serializer_class = CandidateSessionSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
         user = self.request.user
-        if user.is_admin:
+        if user.user_type in ['faculty', 'admin', 'superadmin']:
             return CandidateSession.objects.all()
         return CandidateSession.objects.filter(candidate=user)
     
@@ -43,11 +73,17 @@ class CandidateSessionViewSet(viewsets.ModelViewSet):
         return CandidateSessionSerializer
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        if self.request.user.user_type == 'candidate':
+            serializer.save(
+                candidate=self.request.user,
+                created_by=self.request.user
+            )
+        else:
+            serializer.save(created_by=self.request.user)
 
 class SessionTimeSlotViewSet(viewsets.ModelViewSet):
     serializer_class = SessionTimeSlotSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminOrSessionOwner]
     
     def get_queryset(self):
         return SessionTimeSlot.objects.all()

@@ -1,17 +1,23 @@
 from django.db import models
 from users.models import User
+from django.conf import settings
 
 class CandidateSession(models.Model):
     title = models.CharField(max_length=200)
-    description = models.TextField()
+    description = models.TextField(blank=True)
     location = models.CharField(max_length=200)
-    candidate = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sessions')
+    candidate = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='sessions'
+    )
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_sessions')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    needs_transportation = models.BooleanField(default=False)
     
     def __str__(self):
-        return self.title
+        return f"{self.title} - {self.candidate.email}"
 
 class SessionTimeSlot(models.Model):
     session = models.ForeignKey(CandidateSession, on_delete=models.CASCADE, related_name='time_slots')
