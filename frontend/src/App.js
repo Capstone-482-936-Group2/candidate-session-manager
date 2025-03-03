@@ -15,7 +15,10 @@ import Register from './components/auth/Register';
 import Dashboard from './components/shared/Dashboard';
 import FacultyDashboard from './components/faculty/FacultyDashboard';
 import AdminDashboard from './components/admin/AdminDashboard';
+import RecruitingSeasons from './components/seasons/RecruitingSeasons';
+import CandidateSectionManagement from './components/admin/CandidateSectionManagement';
 import ProtectedRoute from './components/shared/ProtectedRoute';
+import RecruitingSeasonManagement from './components/admin/RecruitingSeasonManagement';
 
 // Create theme
 const theme = createTheme({
@@ -45,6 +48,7 @@ function App() {
               {/* Protected routes */}
               <Route element={<ProtectedRoute requiredRole="candidate" />}>
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/seasons" element={<RecruitingSeasons />} />
               </Route>
               
               <Route element={<ProtectedRoute requiredRole="faculty" />}>
@@ -53,6 +57,8 @@ function App() {
               
               <Route element={<ProtectedRoute requiredRole="admin" />}>
                 <Route path="/admin-dashboard" element={<AdminDashboard />} />
+                <Route path="/admin-dashboard/season/:seasonId/candidates" element={<CandidateSectionManagement />} />
+                <Route path="/admin-dashboard/season/:seasonId/management" element={<RecruitingSeasonManagement />} />
               </Route>
               
               {/* Redirect root to dashboard or login */}

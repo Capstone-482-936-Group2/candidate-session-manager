@@ -10,13 +10,21 @@ class UserSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         request = self.context.get('request')
+        is_superadmin = self.context.get('is_superadmin', False)
         
-        # If not admin, remove sensitive fields for other users
-        if request and request.user.is_authenticated and not request.user.is_admin and instance.id != request.user.id:
-            # Keep only basic info for other users
+        if not request or not request.user.is_authenticated:
+            # Unauthenticated users see very limited data
             allowed_fields = ['id', 'username', 'first_name', 'last_name']
             return {k: v for k, v in data.items() if k in allowed_fields}
             
+        if not is_superadmin:
+            # Non-superadmins don't see email for other users
+            # and only see user_type for non-superadmin users
+            if instance.id != request.user.id:
+                if instance.user_type == 'superadmin':
+                    # Hide superadmin users completely from non-superadmins
+                    return None
+                
         return data
 
 class RegisterSerializer(serializers.ModelSerializer):

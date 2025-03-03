@@ -2,31 +2,53 @@ from django.db import models
 from users.models import User
 from django.conf import settings
 
-class CandidateSession(models.Model):
+class Session(models.Model):
+    """
+    Represents a recruiting season (e.g., "Fall 2023 Recruitment")
+    """
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
-    location = models.CharField(max_length=200)
-    candidate = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='sessions'
-    )
+    start_date = models.DateField()
+    end_date = models.DateField()
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_sessions')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return self.title
+
+class CandidateSection(models.Model):
+    """
+    Represents a candidate's section within a recruiting session
+    """
+    session = models.ForeignKey(Session, on_delete=models.CASCADE, related_name='candidate_sections')
+    candidate = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='sections'
+    )
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    location = models.CharField(max_length=200)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     needs_transportation = models.BooleanField(default=False)
+    arrival_date = models.DateField(null=True, blank=True)
+    leaving_date = models.DateField(null=True, blank=True)
     
     def __str__(self):
         return f"{self.title} - {self.candidate.email}"
 
 class SessionTimeSlot(models.Model):
-    session = models.ForeignKey(CandidateSession, on_delete=models.CASCADE, related_name='time_slots')
+    candidate_section = models.ForeignKey(CandidateSection, on_delete=models.CASCADE, related_name='time_slots')
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
     max_attendees = models.PositiveIntegerField(default=1)
+    location = models.CharField(max_length=200, blank=True)
+    description = models.TextField(blank=True)
     
     def __str__(self):
-        return f"{self.session.title} - {self.start_time.strftime('%Y-%m-%d %H:%M')}"
+        return f"{self.candidate_section.title} - {self.start_time.strftime('%Y-%m-%d %H:%M')}"
     
     @property
     def available_slots(self):

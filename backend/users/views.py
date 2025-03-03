@@ -25,8 +25,11 @@ class UserViewSet(viewsets.ModelViewSet):
             return [permissions.AllowAny()]
         elif self.action in ['me', 'logout', 'list', 'retrieve']:
             return [permissions.IsAuthenticated()]
+        elif self.action == 'update_role':
+            # Custom permission for update_role that checks is_superadmin in the action itself
+            return [permissions.IsAuthenticated()]
         # For other actions like update/delete
-        return [permissions.IsAdminUser()]
+        return [permissions.IsAuthenticated()]
     
     def get_queryset(self):
         user = self.request.user
@@ -34,13 +37,19 @@ class UserViewSet(viewsets.ModelViewSet):
             if user.is_superadmin:
                 return User.objects.all()
             elif user.is_admin:
-                # Admins can see all users except superadmins
+                # Regular admins can only see non-superadmin users
+                # and get a limited view (handled by serializer)
                 return User.objects.exclude(user_type='superadmin')
             else:
-                # Regular users can see basic info about other users
-                # but not sensitive fields (this is handled by the serializer)
+                # Regular users can only see basic info
+                # and get a very limited view (handled by serializer)
                 return User.objects.all()
         return User.objects.none()
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['is_superadmin'] = self.request.user.is_superadmin if self.request.user.is_authenticated else False
+        return context
     
     @action(detail=False, methods=['post'])
     def login(self, request):
@@ -112,10 +121,24 @@ class UserViewSet(viewsets.ModelViewSet):
         if new_role not in [choice[0] for choice in User.USER_TYPE_CHOICES]:
             return Response({'error': 'Invalid user type'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Prevent changing superadmin roles by other superadmins
-        if user.is_superadmin and user != request.user:
-            return Response({'error': 'Cannot change another superadmin\'s role'}, 
-                            status=status.HTTP_403_FORBIDDEN)
+        # If trying to change a superadmin's role (including self)
+        if user.is_superadmin:
+            # Count number of superadmins
+            superadmin_count = User.objects.filter(user_type='superadmin').count()
+            
+            # If this is the last superadmin and trying to change to non-superadmin role
+            if superadmin_count == 1 and new_role != 'superadmin':
+                return Response(
+                    {'error': 'Cannot change role: This is the last superadmin user'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # If trying to change another superadmin's role
+            if user != request.user:
+                return Response(
+                    {'error': 'Cannot change another superadmin\'s role'}, 
+                    status=status.HTTP_403_FORBIDDEN
+                )
         
         user.user_type = new_role
         user.save()
@@ -135,3 +158,29 @@ class UserViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(queryset, many=True)
             
         return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        user = self.get_object()
+        
+        # Only superadmins can delete users
+        if not request.user.is_superadmin:
+            return Response(
+                {'error': 'Only superadmins can delete users'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+            
+        # Prevent deleting superadmin users
+        if user.user_type == 'superadmin':
+            return Response(
+                {'error': 'Cannot delete superadmin users'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        # Prevent self-deletion
+        if user == request.user:
+            return Response(
+                {'error': 'Cannot delete your own account'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+            
+        return super().destroy(request, *args, **kwargs)
