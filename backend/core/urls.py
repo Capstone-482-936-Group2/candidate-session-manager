@@ -26,8 +26,14 @@ router.register(r'sessions', CandidateSessionViewSet, basename='session')
 router.register(r'timeslots', SessionTimeSlotViewSet, basename='timeslot')
 router.register(r'attendees', SessionAttendeeViewSet, basename='attendee')
 
+# API URLs
+api_urlpatterns = [
+    path('', include(router.urls)),
+    path('users/', include('users.urls')),  # User authentication URLs
+]
+
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include(router.urls)),
+    path('api/', include(api_urlpatterns)),  # All API routes under /api/
     path('api-auth/', include('rest_framework.urls')),
 ]
