@@ -16,6 +16,7 @@ import Dashboard from './components/shared/Dashboard';
 import FacultyDashboard from './components/faculty/FacultyDashboard';
 import AdminDashboard from './components/admin/AdminDashboard';
 import ProtectedRoute from './components/shared/ProtectedRoute';
+import SessionsList from './components/sessions/SessionsList';
 
 // Create theme
 const theme = createTheme({
@@ -43,6 +44,10 @@ function App() {
               <Route path="/register" element={<Register />} />
               
               {/* Protected routes */}
+              <Route element={<ProtectedRoute />}>
+                <Route path="/sessions" element={<SessionsList />} />
+              </Route>
+              
               <Route element={<ProtectedRoute requiredRole="candidate" />}>
                 <Route path="/dashboard" element={<Dashboard />} />
               </Route>
