@@ -759,6 +759,23 @@ const CandidateSectionManagement = () => {
                                       color={slot.attendees?.length >= slot.max_attendees ? "error" : "success"}
                                     />
                                   </Box>
+                                  {slot.attendees && slot.attendees.length > 0 && (
+                                    <Box sx={{ mt: 1 }}>
+                                      <Typography variant="body2" color="textSecondary" sx={{ mb: 0.5 }}>
+                                        Registered Members:
+                                      </Typography>
+                                      <List dense>
+                                        {slot.attendees.map(attendee => (
+                                          <ListItem key={attendee.user.id} sx={{ py: 0.5 }}>
+                                            <ListItemText
+                                              primary={`${attendee.user.first_name} ${attendee.user.last_name}`}
+                                              secondary={attendee.user.email}
+                                            />
+                                          </ListItem>
+                                        ))}
+                                      </List>
+                                    </Box>
+                                  )}
                                 </Box>
                               }
                             />
