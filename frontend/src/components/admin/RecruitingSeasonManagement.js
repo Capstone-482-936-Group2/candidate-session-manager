@@ -9,7 +9,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { Add as AddIcon, Delete as DeleteIcon, People as PeopleIcon } from '@mui/icons-material';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { seasonsAPI, candidateSectionsAPI } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
@@ -121,9 +121,9 @@ const RecruitingSeasonManagement = () => {
 
   const handleCreateSeason = async () => {
     try {
-      // Format dates correctly for the backend (YYYY-MM-DD format)
-      const formattedStartDate = format(seasonForm.start_date, 'yyyy-MM-dd');
-      const formattedEndDate = format(seasonForm.end_date, 'yyyy-MM-dd');
+      // Format dates without timezone adjustment (YYYY-MM-DD format)
+      const formattedStartDate = format(seasonForm.start_date, 'yyyy-MM-dd', { timeZone: 'UTC' });
+      const formattedEndDate = format(seasonForm.end_date, 'yyyy-MM-dd', { timeZone: 'UTC' });
       
       // Create new recruiting season with properly formatted dates
       const seasonData = {
@@ -257,7 +257,7 @@ const RecruitingSeasonManagement = () => {
                   <CardContent>
                     <Typography variant="h5">{season.title}</Typography>
                     <Typography variant="subtitle1" color="textSecondary" gutterBottom>
-                      {format(new Date(season.start_date), 'MMM d, yyyy')} - {format(new Date(season.end_date), 'MMM d, yyyy')}
+                      {format(parseISO(season.start_date), 'MMM d, yyyy')} - {format(parseISO(season.end_date), 'MMM d, yyyy')}
                     </Typography>
                     <Typography variant="body2" paragraph>
                       {season.description}

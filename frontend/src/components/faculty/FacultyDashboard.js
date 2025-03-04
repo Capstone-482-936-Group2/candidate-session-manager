@@ -96,7 +96,7 @@ const FacultyDashboard = () => {
   };
 
   const isRegistered = (timeSlot) => {
-    return timeSlot.attendees?.some(attendee => attendee.user.id === currentUser.id);
+    return timeSlot.attendees?.some(attendee => attendee?.user?.id === currentUser?.id) || false;
   };
 
   if (loading && !selectedSeason) {
@@ -152,7 +152,7 @@ const FacultyDashboard = () => {
                     </Typography>
 
                     <Typography variant="subtitle1" gutterBottom>
-                      {format(new Date(season.start_date), 'MMM d, yyyy')} - {format(new Date(season.end_date), 'MMM d, yyyy')}
+                      {format(parseISO(season.start_date), 'MMM d, yyyy')} - {format(parseISO(season.end_date), 'MMM d, yyyy')}
                     </Typography>
                   </CardContent>
                   <Button 
@@ -177,7 +177,7 @@ const FacultyDashboard = () => {
               {selectedSeason.title}
             </Typography>
             <Typography variant="subtitle1" gutterBottom>
-              {format(new Date(selectedSeason.start_date), 'MMM d, yyyy')} - {format(new Date(selectedSeason.end_date), 'MMM d, yyyy')}
+              {format(parseISO(selectedSeason.start_date), 'MMM d, yyyy')} - {format(parseISO(selectedSeason.end_date), 'MMM d, yyyy')}
             </Typography>
           </Box>
 
