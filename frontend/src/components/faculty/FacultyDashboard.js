@@ -249,7 +249,7 @@ const FacultyDashboard = () => {
                               }}
                             >
                               <ListItemText
-                                primary={`${format(new Date(slot.start_time), 'MMM d, yyyy h:mm a')} - ${format(new Date(slot.end_time), 'h:mm a')}`}
+                                primary={`${format(parseISO(slot.start_time), 'MMM d, yyyy h:mm a')} - ${format(parseISO(slot.end_time), 'h:mm a')}`}
                                 secondary={
                                   <Box sx={{ mt: 1 }}>
                                     {slot.location && (

@@ -184,9 +184,13 @@ const CandidateSectionManagement = () => {
 
   const handleOpenTimeSlotDialog = (section) => {
     setSelectedSection(section);
+    // Create dates without timezone conversion
+    const now = new Date();
+    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+    
     setTimeSlots([{
-      start_time: new Date(),
-      end_time: new Date(new Date().setHours(new Date().getHours() + 1)),
+      start_time: now,
+      end_time: oneHourLater,
       max_attendees: 1,
       location: '',
       description: ''
@@ -219,9 +223,8 @@ const CandidateSectionManagement = () => {
   const addTimeSlot = () => {
     // Add a new time slot starting 1 hour after the last one
     const lastSlot = timeSlots[timeSlots.length - 1];
-    const newStartTime = new Date(lastSlot.end_time);
-    const newEndTime = new Date(newStartTime);
-    newEndTime.setHours(newEndTime.getHours() + 1);
+    const newStartTime = new Date(lastSlot.end_time.getTime());
+    const newEndTime = new Date(newStartTime.getTime() + 60 * 60 * 1000);
     
     setTimeSlots([
       ...timeSlots,
@@ -408,10 +411,11 @@ const CandidateSectionManagement = () => {
       const createdSlots = [];
       
       for (const slot of timeSlots) {
+        // Use exact time entered
         const timeSlotData = {
           candidate_section: selectedSection.id,
-          start_time: format(slot.start_time, "yyyy-MM-dd'T'HH:mm:ss"),
-          end_time: format(slot.end_time, "yyyy-MM-dd'T'HH:mm:ss"),
+          start_time: slot.start_time.toISOString().slice(0, 19),
+          end_time: slot.end_time.toISOString().slice(0, 19),
           max_attendees: parseInt(slot.max_attendees),
           location: slot.location || '',
           description: slot.description || ''
@@ -516,6 +520,7 @@ const CandidateSectionManagement = () => {
   const handleOpenEditTimeSlotDialog = (slot, section) => {
     setSelectedTimeSlot(slot);
     setSelectedSection(section);
+    // Convert UTC dates to local for display
     setTimeSlotForm({
       start_time: new Date(slot.start_time),
       end_time: new Date(slot.end_time),
@@ -552,8 +557,8 @@ const CandidateSectionManagement = () => {
     try {
       const timeSlotData = {
         candidate_section: selectedSection.id,
-        start_time: format(timeSlotForm.start_time, "yyyy-MM-dd'T'HH:mm:ss"),
-        end_time: format(timeSlotForm.end_time, "yyyy-MM-dd'T'HH:mm:ss"),
+        start_time: timeSlotForm.start_time.toISOString().slice(0, 19),
+        end_time: timeSlotForm.end_time.toISOString().slice(0, 19),
         max_attendees: parseInt(timeSlotForm.max_attendees),
         location: timeSlotForm.location || '',
         description: timeSlotForm.description || ''
@@ -739,7 +744,7 @@ const CandidateSectionManagement = () => {
                             }}
                           >
                             <ListItemText
-                              primary={`${format(new Date(slot.start_time), 'MMM d, yyyy h:mm a')} - ${format(new Date(slot.end_time), 'h:mm a')}`}
+                              primary={`${format(parseISO(slot.start_time), 'MMM d, yyyy h:mm a')} - ${format(parseISO(slot.end_time), 'h:mm a')}`}
                               secondary={
                                 <Box sx={{ mt: 1 }}>
                                   {slot.location && (
@@ -1001,6 +1006,7 @@ const CandidateSectionManagement = () => {
                     value={slot.start_time}
                     onChange={(newValue) => handleTimeSlotChange(index, 'start_time', newValue)}
                     renderInput={(params) => <TextField {...params} fullWidth required />}
+                    timezone="local"
                   />
                 </Grid>
                 <Grid item xs={12} md={5}>
@@ -1010,6 +1016,7 @@ const CandidateSectionManagement = () => {
                     onChange={(newValue) => handleTimeSlotChange(index, 'end_time', newValue)}
                     renderInput={(params) => <TextField {...params} fullWidth required />}
                     minDateTime={slot.start_time}
+                    timezone="local"
                   />
                 </Grid>
                 <Grid item xs={8} md={1}>
@@ -1071,7 +1078,7 @@ const CandidateSectionManagement = () => {
           </DialogActions>
         </Dialog>
         
-        {/* Add Edit Time Slot Dialog */}
+        {/* Edit Time Slot Dialog */}
         <Dialog open={editTimeSlotDialogOpen} onClose={handleCloseEditTimeSlotDialog} maxWidth="md" fullWidth>
           <DialogTitle>Edit Time Slot for {selectedSection?.candidate.first_name} {selectedSection?.candidate.last_name}</DialogTitle>
           <DialogContent>
@@ -1086,6 +1093,7 @@ const CandidateSectionManagement = () => {
                   value={timeSlotForm.start_time}
                   onChange={(newValue) => handleTimeSlotFormChange('start_time', newValue)}
                   renderInput={(params) => <TextField {...params} fullWidth required />}
+                  timezone="local"
                 />
               </Grid>
               <Grid item xs={12} md={5}>
@@ -1095,6 +1103,7 @@ const CandidateSectionManagement = () => {
                   onChange={(newValue) => handleTimeSlotFormChange('end_time', newValue)}
                   renderInput={(params) => <TextField {...params} fullWidth required />}
                   minDateTime={timeSlotForm.start_time}
+                  timezone="local"
                 />
               </Grid>
               <Grid item xs={12} md={2}>
