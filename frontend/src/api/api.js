@@ -43,19 +43,30 @@ export const usersAPI = {
   deleteUser: (id) => api.delete(`/users/${id}/`),
 };
 
-// Sessions API
-export const sessionsAPI = {
-  getSessions: () => api.get('/sessions/'),
-  getSessionById: (id) => api.get(`/sessions/${id}/`),
-  createSession: (sessionData) => api.post('/sessions/', sessionData),
-  updateSession: (id, sessionData) => api.patch(`/sessions/${id}/`, sessionData),
-  deleteSession: (id) => api.delete(`/sessions/${id}/`),
+// Recruiting Seasons API (formerly Sessions API)
+export const seasonsAPI = {
+  getSeasons: () => api.get('/seasons/'),
+  getSeasonById: (id) => api.get(`/seasons/${id}/`),
+  createSeason: (seasonData) => api.post('/seasons/', seasonData),
+  updateSeason: (id, seasonData) => api.patch(`/seasons/${id}/`, seasonData),
+  deleteSeason: (id) => api.delete(`/seasons/${id}/`),
+};
+
+// Candidate Sections API 
+export const candidateSectionsAPI = {
+  getCandidateSections: () => api.get('/candidate-sections/'),
+  getCandidateSectionById: (id) => api.get(`/candidate-sections/${id}/`),
+  getCandidateSectionsBySeason: (seasonId) => api.get(`/candidate-sections/?session=${seasonId}`),
+  createCandidateSection: (sectionData) => api.post('/candidate-sections/', sectionData),
+  updateCandidateSection: (id, sectionData) => api.patch(`/candidate-sections/${id}/`, sectionData),
+  deleteCandidateSection: (id) => api.delete(`/candidate-sections/${id}/`),
 };
 
 // Time Slots API
 export const timeSlotsAPI = {
   getTimeSlots: () => api.get('/timeslots/'),
   getTimeSlotById: (id) => api.get(`/timeslots/${id}/`),
+  getTimeSlotsByCandidateSection: (sectionId) => api.get(`/timeslots/?candidate_section=${sectionId}`),
   createTimeSlot: (timeSlotData) => api.post('/timeslots/', timeSlotData),
   updateTimeSlot: (id, timeSlotData) => api.patch(`/timeslots/${id}/`, timeSlotData),
   deleteTimeSlot: (id) => api.delete(`/timeslots/${id}/`),

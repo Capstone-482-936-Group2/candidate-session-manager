@@ -18,11 +18,17 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from users.views import UserViewSet
-from candidate_sessions.views import CandidateSessionViewSet, SessionTimeSlotViewSet, SessionAttendeeViewSet
+from candidate_sessions.views import (
+    SessionViewSet, 
+    CandidateSectionViewSet, 
+    SessionTimeSlotViewSet, 
+    SessionAttendeeViewSet
+)
 
 router = DefaultRouter()
 router.register(r'users', UserViewSet)
-router.register(r'sessions', CandidateSessionViewSet, basename='session')
+router.register(r'seasons', SessionViewSet, basename='season')
+router.register(r'candidate-sections', CandidateSectionViewSet, basename='candidate-section')
 router.register(r'timeslots', SessionTimeSlotViewSet, basename='timeslot')
 router.register(r'attendees', SessionAttendeeViewSet, basename='attendee')
 

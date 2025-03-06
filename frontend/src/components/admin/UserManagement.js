@@ -3,7 +3,7 @@ import {
   Paper, Typography, Table, TableBody, TableCell, TableContainer, 
   TableHead, TableRow, Button, Dialog, DialogActions, DialogContent, 
   DialogTitle, FormControl, InputLabel, Select, MenuItem, TextField,
-  Snackbar, Alert
+  Snackbar, Alert, Box
 } from '@mui/material';
 import { usersAPI } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
@@ -13,6 +13,7 @@ const UserManagement = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [newRole, setNewRole] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
@@ -80,6 +81,42 @@ const UserManagement = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
+  const handleDeleteClick = (user) => {
+    setSelectedUser(user);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleCloseDeleteDialog = () => {
+    setDeleteDialogOpen(false);
+    setSelectedUser(null);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!selectedUser) {
+      handleCloseDeleteDialog();
+      return;
+    }
+
+    try {
+      await usersAPI.deleteUser(selectedUser.id);
+      // Refresh users data
+      await fetchUsers();
+      setSnackbar({
+        open: true,
+        message: `Successfully deleted user ${selectedUser.username}`,
+        severity: 'success'
+      });
+    } catch (err) {
+      setSnackbar({
+        open: true,
+        message: err.response?.data?.error || 'Failed to delete user',
+        severity: 'error'
+      });
+    } finally {
+      handleCloseDeleteDialog();
+    }
+  };
+
   if (loading) return <Typography>Loading users...</Typography>;
   if (error) return <Typography color="error">{error}</Typography>;
 
@@ -110,17 +147,30 @@ const UserManagement = () => {
                 </TableCell>
                 <TableCell>{user.user_type}</TableCell>
                 <TableCell align="right">
-                  <Button 
-                    variant="outlined" 
-                    size="small"
-                    onClick={() => handleOpenDialog(user)}
-                    disabled={
-                      (user.user_type === 'superadmin' && !isSuperAdmin) || 
-                      user.id === currentUser.id
-                    }
-                  >
-                    Edit Role
-                  </Button>
+                  <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                    <Button 
+                      variant="outlined" 
+                      size="small"
+                      onClick={() => handleOpenDialog(user)}
+                      disabled={
+                        (user.user_type === 'superadmin' && !isSuperAdmin) || 
+                        (!isSuperAdmin && user.id === currentUser.id)
+                      }
+                    >
+                      Edit Role
+                    </Button>
+                    {isSuperAdmin && user.id !== currentUser.id && (
+                      <Button 
+                        variant="outlined" 
+                        color="error"
+                        size="small"
+                        onClick={() => handleDeleteClick(user)}
+                        disabled={user.user_type === 'superadmin'}
+                      >
+                        Delete
+                      </Button>
+                    )}
+                  </Box>
                 </TableCell>
               </TableRow>
             ))}
@@ -154,6 +204,25 @@ const UserManagement = () => {
           <Button onClick={handleCloseDialog}>Cancel</Button>
           <Button onClick={handleUpdateRole} variant="contained">
             Update
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={handleCloseDeleteDialog}>
+        <DialogTitle>Delete User</DialogTitle>
+        <DialogContent>
+          <Typography paragraph sx={{ mt: 2 }}>
+            Are you sure you want to delete the user <strong>{selectedUser?.username}</strong>?
+          </Typography>
+          <Typography color="error">
+            This action cannot be undone. All data associated with this user will be permanently deleted.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDeleteDialog}>Cancel</Button>
+          <Button onClick={handleDeleteUser} variant="contained" color="error">
+            Delete User
           </Button>
         </DialogActions>
       </Dialog>

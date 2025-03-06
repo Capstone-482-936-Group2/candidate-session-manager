@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { Container, Typography, Paper, Box, Tabs, Tab } from '@mui/material';
 import UserManagement from './UserManagement';
-import SessionManagement from './SessionManagement';
+import RecruitingSeasonManagement from './RecruitingSeasonManagement';
+import { useLocation } from 'react-router-dom';
 
 const AdminDashboard = () => {
-  const [tabValue, setTabValue] = useState(0);
+  const location = useLocation();
+  const defaultTab = location.state?.defaultTab ?? 0;
+  const [tabValue, setTabValue] = useState(defaultTab);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -19,13 +22,13 @@ const AdminDashboard = () => {
       <Paper sx={{ mb: 3 }}>
         <Tabs value={tabValue} onChange={handleTabChange} centered>
           <Tab label="User Management" />
-          <Tab label="Session Management" />
+          <Tab label="Season Management" />
         </Tabs>
       </Paper>
       
       <Box sx={{ py: 2 }}>
         {tabValue === 0 && <UserManagement />}
-        {tabValue === 1 && <SessionManagement />}
+        {tabValue === 1 && <RecruitingSeasonManagement />}
       </Box>
     </Container>
   );

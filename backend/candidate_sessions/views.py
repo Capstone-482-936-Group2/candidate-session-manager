@@ -3,15 +3,19 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
-from .models import CandidateSession, SessionTimeSlot, SessionAttendee
+from .models import Session, CandidateSection, SessionTimeSlot, SessionAttendee
 from .serializers import (
-    CandidateSessionSerializer, 
+    CandidateSectionSerializer, 
+    SessionSerializer,
+    SessionDetailSerializer,
     SessionTimeSlotSerializer,
     SessionAttendeeSerializer,
     TimeSlotDetailSerializer,
-    CandidateSessionCreateSerializer,
+    CandidateSectionCreateSerializer,
+    SessionCreateSerializer,
     SessionTimeSlotCreateSerializer
 )
+from rest_framework import serializers
 
 # Create your views here.
 
@@ -35,55 +39,80 @@ class IsAdminOrCandidateOwner(permissions.BasePermission):
         # Allow admin users full access
         if request.user.is_admin:
             return True
-        # Allow candidates to manage their own sessions
+        # Allow candidates to manage their own sections
         return obj.candidate == request.user
 
-class IsAdminOrSessionOwner(permissions.BasePermission):
+class IsAdminOrFacultyOrSectionOwner(permissions.BasePermission):
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return request.user.is_authenticated
         return request.user.is_authenticated
 
     def has_object_permission(self, request, view, obj):
-        if request.user.is_admin:
+        user = request.user
+        if user.user_type in ['admin', 'superadmin', 'faculty']:
             return True
-        # For POST requests, check if the user owns the session
+        # For POST requests, check if the user owns the section
         if request.method == 'POST':
-            session_id = request.data.get('session')
+            candidate_section_id = request.data.get('candidate_section')
             try:
-                session = CandidateSession.objects.get(id=session_id)
-                return session.candidate == request.user
-            except CandidateSession.DoesNotExist:
+                section = CandidateSection.objects.get(id=candidate_section_id)
+                return section.candidate == user
+            except CandidateSection.DoesNotExist:
                 return False
-        return obj.session.candidate == request.user
+        return obj.candidate_section.candidate == user
 
-class CandidateSessionViewSet(viewsets.ModelViewSet):
-    serializer_class = CandidateSessionSerializer
+class SessionViewSet(viewsets.ModelViewSet):
+    serializer_class = SessionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        return Session.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return SessionDetailSerializer
+        if self.action in ['create', 'update', 'partial_update']:
+            return SessionCreateSerializer
+        return SessionSerializer
+    
+    def perform_create(self, serializer):
+        if self.request.user.user_type not in ['admin', 'superadmin']:
+            raise serializers.ValidationError("Only administrators can create sessions.")
+        serializer.save(created_by=self.request.user)
+
+class CandidateSectionViewSet(viewsets.ModelViewSet):
+    serializer_class = CandidateSectionSerializer
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
         user = self.request.user
-        if user.user_type in ['faculty', 'admin', 'superadmin']:
-            return CandidateSession.objects.all()
-        return CandidateSession.objects.filter(candidate=user)
+        session_id = self.request.query_params.get('session')
+        queryset = CandidateSection.objects.all()
+        
+        # Filter by session if provided
+        if session_id:
+            queryset = queryset.filter(session_id=session_id)
+        
+        # Filter by user type
+        if user.user_type not in ['faculty', 'admin', 'superadmin']:
+            queryset = queryset.filter(candidate=user)
+            
+        return queryset
     
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
-            return CandidateSessionCreateSerializer
-        return CandidateSessionSerializer
+            return CandidateSectionCreateSerializer
+        return CandidateSectionSerializer
     
     def perform_create(self, serializer):
-        if self.request.user.user_type == 'candidate':
-            serializer.save(
-                candidate=self.request.user,
-                created_by=self.request.user
-            )
-        else:
-            serializer.save(created_by=self.request.user)
+        if self.request.user.user_type not in ['admin', 'superadmin']:
+            raise serializers.ValidationError("Only administrators can create candidate sections.")
+        serializer.save()
 
 class SessionTimeSlotViewSet(viewsets.ModelViewSet):
     serializer_class = SessionTimeSlotSerializer
-    permission_classes = [IsAdminOrSessionOwner]
+    permission_classes = [IsAdminOrFacultyOrSectionOwner]
     
     def get_queryset(self):
         return SessionTimeSlot.objects.all()
@@ -99,6 +128,11 @@ class SessionTimeSlotViewSet(viewsets.ModelViewSet):
     def register(self, request, pk=None):
         time_slot = self.get_object()
         user = request.user
+        
+        # Check if the user is a candidate (candidates shouldn't register)
+        if user.user_type == 'candidate':
+            return Response({'error': 'Candidates cannot register for sessions'}, 
+                          status=status.HTTP_403_FORBIDDEN)
         
         # Check if the time slot is available
         if time_slot.is_full:
