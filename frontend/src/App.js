@@ -46,9 +46,7 @@ function App() {
               <Route path="/register" element={<Register />} />
               
               {/* Protected routes */}
-              <Route element={<ProtectedRoute />}>
-                <Route path="/sessions" element={<SessionsList />} />
-              </Route>
+              
               
               <Route element={<ProtectedRoute requiredRole="candidate" />}>
                 <Route path="/dashboard" element={<Dashboard />} />
