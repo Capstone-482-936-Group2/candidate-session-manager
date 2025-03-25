@@ -3,9 +3,17 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.views import APIView
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import login, logout, authenticate
+from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
+from allauth.socialaccount.providers.oauth2.client import OAuth2Client
+from allauth.socialaccount.models import SocialAccount
+from google.oauth2 import id_token
+from google.auth.transport import requests
+from django.conf import settings
+from django.contrib.auth import get_backends
 from .models import User
 from .serializers import UserSerializer, RegisterSerializer, UserUpdateSerializer
+import json
 
 # Create your views here.
 
@@ -20,10 +28,9 @@ class UserViewSet(viewsets.ModelViewSet):
         return UserSerializer
     
     def get_permissions(self):
-        # Allow anyone to register or login, but require authentication for other actions
-        if self.action in ['create', 'login', 'register']:
+        if self.action in ['google_login', 'logout']:
             return [permissions.AllowAny()]
-        elif self.action in ['me', 'logout', 'list', 'retrieve']:
+        elif self.action in ['me', 'list', 'retrieve']:
             return [permissions.IsAuthenticated()]
         elif self.action == 'update_role':
             # Custom permission for update_role that checks is_superadmin in the action itself
@@ -52,41 +59,90 @@ class UserViewSet(viewsets.ModelViewSet):
         return context
     
     @action(detail=False, methods=['post'])
-    def login(self, request):
-        email = request.data.get('email')
-        password = request.data.get('password')
-        
-        if not email or not password:
-            return Response(
-                {'error': 'Please provide both email and password'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Add debug printing
-        print(f"Attempting to authenticate user with email: {email}")
-        
-        # Get the user manually to check if they exist
+    def google_login(self, request):
         try:
-            user_check = User.objects.get(email=email)
-            print(f"User found: {user_check.email}, {user_check.username}")
-        except User.DoesNotExist:
-            print("No user found with this email")
-        
-        # Try authentication
-        user = authenticate(request, email=email, password=password)
-        
-        if user:
-            print(f"Authentication successful for user: {user.email}")
+            token = request.data.get('access_token')
+            print(f"Received token: {token[:20]}...") # Print first 20 chars of token for debugging
+            
+            if not token:
+                return Response(
+                    {'error': 'Token is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            print(f"Using client ID: {settings.GOOGLE_CLIENT_ID}")
+            
+            # Specify the CLIENT_ID of your app
+            idinfo = id_token.verify_oauth2_token(
+                token,
+                requests.Request(),
+                settings.GOOGLE_CLIENT_ID,
+                clock_skew_in_seconds=10  # Allow some clock skew
+            )
+
+            print(f"Token verification successful. User info: {json.dumps(idinfo, indent=2)}")
+
+            # Verify the email is verified
+            if not idinfo.get('email_verified', False):
+                return Response(
+                    {'error': 'Email not verified'},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+
+            # Get user info from the verified token
+            email = idinfo['email']
+            first_name = idinfo.get('given_name', '')
+            last_name = idinfo.get('family_name', '')
+
+            # Try to find existing user
+            try:
+                user = User.objects.get(email=email)
+                print(f"Found existing user: {user.email}")
+            except User.DoesNotExist:
+                # Create new user
+                user = User.objects.create(
+                    email=email,
+                    username=email,
+                    first_name=first_name,
+                    last_name=last_name
+                )
+                print(f"Created new user: {user.email}")
+
+            # Create or update social account
+            social_account, created = SocialAccount.objects.update_or_create(
+                provider='google',
+                uid=email,
+                defaults={
+                    'user': user,
+                    'extra_data': idinfo
+                }
+            )
+            print(f"{'Created' if created else 'Updated'} social account for {email}")
+
+            # Get the first authentication backend
+            backend = get_backends()[0]
+            
+            # Set the backend attribute on the user instance
+            user.backend = f"{backend.__module__}.{backend.__class__.__name__}"
+            
+            # Log the user in with the specified backend
             login(request, user)
+            
             serializer = self.get_serializer(user)
             return Response(serializer.data)
-        else:
-            print("Authentication failed")
-        
-        return Response(
-            {'error': 'Invalid credentials'},
-            status=status.HTTP_401_UNAUTHORIZED
-        )
+
+        except ValueError as e:
+            print(f"Token verification failed: {str(e)}")
+            return Response(
+                {'error': f'Invalid token: {str(e)}'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        except Exception as e:
+            print(f"Error during Google login: {str(e)}")
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
     
     @action(detail=False, methods=['post'])
     def logout(self, request):

@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { AccountCircle } from '@mui/icons-material';
 
 const Navigation = () => {
-  const { currentUser, logout, isAdmin, isFaculty } = useAuth();
+  const { currentUser, logout } = useAuth();
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = React.useState(null);
 
@@ -31,28 +31,12 @@ const Navigation = () => {
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static">
         <Toolbar>
-          <Typography variant="h6" component={Link} to="/" sx={{ flexGrow: 1, textDecoration: 'none', color: 'white' }}>
+          <Typography variant="h6" component={Link} to="/" sx={{ flexGrow: 1, textDecoration: 'none', color: 'inherit' }}>
             Candidate Session Manager
           </Typography>
           
           {currentUser ? (
             <>
-              <Button color="inherit" component={Link} to="/sessions">
-                Sessions
-              </Button>
-              
-              {isFaculty && (
-                <Button color="inherit" component={Link} to="/faculty-dashboard">
-                  Faculty Dashboard
-                </Button>
-              )}
-              
-              {isAdmin && (
-                <Button color="inherit" component={Link} to="/admin-dashboard">
-                  Admin Dashboard
-                </Button>
-              )}
-              
               <IconButton
                 size="large"
                 aria-label="account of current user"
@@ -61,13 +45,7 @@ const Navigation = () => {
                 onClick={handleMenu}
                 color="inherit"
               >
-                {currentUser.first_name ? (
-                  <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
-                    {currentUser.first_name[0]}
-                  </Avatar>
-                ) : (
-                  <AccountCircle />
-                )}
+                <AccountCircle />
               </IconButton>
               <Menu
                 id="menu-appbar"
@@ -89,14 +67,9 @@ const Navigation = () => {
               </Menu>
             </>
           ) : (
-            <>
-              <Button color="inherit" component={Link} to="/login">
-                Login
-              </Button>
-              <Button color="inherit" component={Link} to="/register">
-                Register
-              </Button>
-            </>
+            <Button color="inherit" component={Link} to="/login">
+              Sign In with Google
+            </Button>
           )}
         </Toolbar>
       </AppBar>

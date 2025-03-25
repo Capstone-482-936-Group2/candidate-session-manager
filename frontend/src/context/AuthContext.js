@@ -26,14 +26,14 @@ export const AuthProvider = ({ children }) => {
     loadUser();
   }, []);
 
-  const login = async (email, password) => {
+  const loginWithGoogle = async (accessToken) => {
     setError(null);
     try {
-      const response = await authAPI.login(email, password);
+      const response = await authAPI.googleLogin(accessToken);
       setCurrentUser(response.data);
       return response.data;
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed');
+      setError(err.response?.data?.error || 'Google login failed');
       throw err;
     }
   };
@@ -61,7 +61,7 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     currentUser,
-    login,
+    loginWithGoogle,
     logout,
     register,
     error,

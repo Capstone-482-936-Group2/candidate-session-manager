@@ -28,7 +28,7 @@ api.interceptors.request.use(config => {
 
 // Authentication API
 export const authAPI = {
-  login: (email, password) => api.post('/users/login/', { email, password }),
+  googleLogin: (idToken) => api.post('/users/google_login/', { access_token: idToken }),
   logout: () => api.post('/users/logout/'),
   register: (userData) => api.post('/users/register/', userData),
   getCurrentUser: () => api.get('/users/me/'),

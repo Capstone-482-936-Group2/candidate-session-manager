@@ -1,83 +1,49 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { TextField, Button, Typography, Container, Box, Paper, Alert } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import { Typography, Container, Box, Paper, Alert } from '@mui/material';
 import { useAuth } from '../../context/AuthContext';
+import { GoogleLogin } from '@react-oauth/google';
 
 const Login = () => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const { loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    
+  const handleGoogleSuccess = async (credentialResponse) => {
     try {
-      await login(formData.email, formData.password);
+      console.log('Google Sign-In successful. Credential:', credentialResponse);
+      if (!credentialResponse.credential) {
+        throw new Error('No credential received from Google');
+      }
+      
+      await loginWithGoogle(credentialResponse.credential);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to login');
+      console.error('Login error:', err);
+      setError(err.response?.data?.error || 'Failed to login with Google');
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prevData) => ({
-      ...prevData,
-      [name]: value,
-    }));
+  const handleGoogleError = (error) => {
+    console.error('Google Sign-In Error:', error);
+    setError('Google sign-in was unsuccessful');
   };
 
   return (
     <Container component="main" maxWidth="xs">
       <Paper elevation={3} sx={{ mt: 8, p: 4 }}>
-        <Typography component="h1" variant="h5" align="center">
-          Sign In
+        <Typography component="h1" variant="h5" align="center" gutterBottom>
+          Sign In with Google
         </Typography>
         
-        {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+        {error && <Alert severity="error" sx={{ mt: 2, mb: 2 }}>{error}</Alert>}
         
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="email"
-            label="Email Address"
-            name="email"
-            autoComplete="email"
-            value={formData.email}
-            onChange={handleChange}
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={handleGoogleError}
+            useOneTap
           />
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            name="password"
-            label="Password"
-            type="password"
-            id="password"
-            autoComplete="current-password"
-            value={formData.password}
-            onChange={handleChange}
-          />
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ mt: 3, mb: 2 }}
-          >
-            Sign In
-          </Button>
-          <Box sx={{ textAlign: 'center' }}>
-            <Link to="/register">
-              {"Don't have an account? Sign Up"}
-            </Link>
-          </Box>
         </Box>
       </Paper>
     </Container>
