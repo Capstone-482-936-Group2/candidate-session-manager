@@ -3,7 +3,7 @@ import {
   Paper, Typography, Grid, Button, TextField, FormControl, InputLabel, 
   Select, MenuItem, Box, List, ListItem, ListItemText, IconButton,
   Card, CardContent, CardActions, Divider, Chip, Dialog, DialogActions,
-  DialogContent, DialogTitle, Snackbar, Alert, CircularProgress
+  DialogContent, DialogTitle, Snackbar, Alert, CircularProgress, FormControlLabel, Switch
 } from '@mui/material';
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -46,7 +46,9 @@ const CandidateSectionManagement = () => {
     end_time: new Date(new Date().setHours(new Date().getHours() + 1)),
     max_attendees: 1,
     location: '',
-    description: ''
+    description: '',
+    is_visible: true,
+    noEndTime: false
   }]);
 
   const [timeSlotForm, setTimeSlotForm] = useState({
@@ -54,7 +56,9 @@ const CandidateSectionManagement = () => {
     end_time: new Date(new Date().setHours(new Date().getHours() + 1)),
     max_attendees: 1,
     location: '',
-    description: ''
+    description: '',
+    is_visible: true,
+    noEndTime: false
   });
 
   const { currentUser } = useAuth();
@@ -193,7 +197,9 @@ const CandidateSectionManagement = () => {
       end_time: oneHourLater,
       max_attendees: 1,
       location: '',
-      description: ''
+      description: '',
+      is_visible: true,
+      noEndTime: false
     }]);
     setTimeSlotDialogOpen(true);
   };
@@ -223,7 +229,7 @@ const CandidateSectionManagement = () => {
   const addTimeSlot = () => {
     // Add a new time slot starting 1 hour after the last one
     const lastSlot = timeSlots[timeSlots.length - 1];
-    const newStartTime = new Date(lastSlot.end_time.getTime());
+    const newStartTime = new Date(lastSlot.end_time?.getTime() || lastSlot.start_time.getTime() + 60 * 60 * 1000);
     const newEndTime = new Date(newStartTime.getTime() + 60 * 60 * 1000);
     
     setTimeSlots([
@@ -231,9 +237,11 @@ const CandidateSectionManagement = () => {
       {
         start_time: newStartTime,
         end_time: newEndTime,
-        max_attendees: lastSlot.max_attendees,
+        max_attendees: 1,
         location: '',
-        description: ''
+        description: '',
+        is_visible: true,
+        noEndTime: false
       }
     ]);
   };
@@ -415,10 +423,11 @@ const CandidateSectionManagement = () => {
         const timeSlotData = {
           candidate_section: selectedSection.id,
           start_time: slot.start_time.toISOString().slice(0, 19),
-          end_time: slot.end_time.toISOString().slice(0, 19),
+          end_time: slot.noEndTime ? null : slot.end_time.toISOString().slice(0, 19),
           max_attendees: parseInt(slot.max_attendees),
           location: slot.location || '',
-          description: slot.description || ''
+          description: slot.description || '',
+          is_visible: slot.noEndTime ? false : (slot.is_visible !== undefined ? slot.is_visible : true)
         };
         
         console.log('Creating time slot:', timeSlotData);
@@ -517,17 +526,18 @@ const CandidateSectionManagement = () => {
     setSnackbar(prev => ({ ...prev, open: false }));
   };
 
-  const handleOpenEditTimeSlotDialog = (slot, section) => {
-    setSelectedTimeSlot(slot);
-    setSelectedSection(section);
-    // Convert UTC dates to local for display
+  const handleOpenEditTimeSlotDialog = (slot) => {
+    const hasNoEndTime = !slot.end_time;
     setTimeSlotForm({
-      start_time: new Date(slot.start_time),
-      end_time: new Date(slot.end_time),
-      max_attendees: slot.max_attendees,
+      start_time: slot.start_time ? new Date(slot.start_time) : null,
+      end_time: slot.end_time ? new Date(slot.end_time) : null,
+      max_attendees: hasNoEndTime ? 0 : (slot.max_attendees || 1),
       location: slot.location || '',
-      description: slot.description || ''
+      description: slot.description || '',
+      is_visible: hasNoEndTime ? false : (slot.is_visible !== undefined ? slot.is_visible : true),
+      noEndTime: hasNoEndTime
     });
+    setSelectedTimeSlot(slot);
     setEditTimeSlotDialogOpen(true);
   };
 
@@ -540,7 +550,9 @@ const CandidateSectionManagement = () => {
       end_time: new Date(new Date().setHours(new Date().getHours() + 1)),
       max_attendees: 1,
       location: '',
-      description: ''
+      description: '',
+      is_visible: true,
+      noEndTime: false
     });
   };
 
@@ -552,25 +564,25 @@ const CandidateSectionManagement = () => {
   };
 
   const handleUpdateTimeSlot = async () => {
-    if (!selectedTimeSlot || !selectedSection) return;
+    if (!selectedTimeSlot) return;
 
     try {
-      const timeSlotData = {
-        candidate_section: selectedSection.id,
+      const updatedData = {
         start_time: timeSlotForm.start_time.toISOString().slice(0, 19),
-        end_time: timeSlotForm.end_time.toISOString().slice(0, 19),
+        end_time: timeSlotForm.noEndTime ? null : timeSlotForm.end_time.toISOString().slice(0, 19),
         max_attendees: parseInt(timeSlotForm.max_attendees),
         location: timeSlotForm.location || '',
-        description: timeSlotForm.description || ''
+        description: timeSlotForm.description || '',
+        is_visible: timeSlotForm.noEndTime ? false : timeSlotForm.is_visible
       };
-
-      console.log('Updating time slot:', timeSlotData);
-      await timeSlotsAPI.updateTimeSlot(selectedTimeSlot.id, timeSlotData);
-
+      
+      console.log('Updating time slot:', updatedData);
+      await timeSlotsAPI.updateTimeSlot(selectedTimeSlot.id, updatedData);
+      
       // Refresh the candidate sections data to include updated time slot
       const sectionsResponse = await candidateSectionsAPI.getCandidateSectionsBySeason(seasonId);
       setCandidateSections(sectionsResponse.data);
-
+      
       // Close dialog and show success message
       handleCloseEditTimeSlotDialog();
       setSnackbar({
@@ -713,7 +725,7 @@ const CandidateSectionManagement = () => {
                     
                     {section.time_slots && section.time_slots.length > 0 ? (
                       <List dense>
-                        {section.time_slots.map(slot => (
+                        {section.time_slots.map((slot, index) => (
                           <ListItem
                             key={slot.id}
                             secondaryAction={
@@ -721,7 +733,7 @@ const CandidateSectionManagement = () => {
                                 <IconButton
                                   edge="end"
                                   aria-label="edit"
-                                  onClick={() => handleOpenEditTimeSlotDialog(slot, section)}
+                                  onClick={() => handleOpenEditTimeSlotDialog(slot)}
                                   sx={{ mr: 1 }}
                                 >
                                   <EditIcon />
@@ -744,7 +756,11 @@ const CandidateSectionManagement = () => {
                             }}
                           >
                             <ListItemText
-                              primary={`${format(parseISO(slot.start_time), 'MMM d, yyyy h:mm a')} - ${format(parseISO(slot.end_time), 'h:mm a')}`}
+                              primary={`${slot.start_time ? format(new Date(slot.start_time), 'MMM d, yyyy h:mm a') : 'No start time'}${
+                                slot.end_time 
+                                  ? ` - ${format(new Date(slot.end_time), 'h:mm a')}` 
+                                  : ' (No end time)'
+                              }`}
                               secondary={
                                 <Box sx={{ mt: 1 }}>
                                   {slot.location && (
@@ -1014,9 +1030,9 @@ const CandidateSectionManagement = () => {
                     label="End Time"
                     value={slot.end_time}
                     onChange={(newValue) => handleTimeSlotChange(index, 'end_time', newValue)}
-                    renderInput={(params) => <TextField {...params} fullWidth required />}
+                    slotProps={{ textField: { fullWidth: true, required: !slot.noEndTime, disabled: slot.noEndTime } }}
                     minDateTime={slot.start_time}
-                    timezone="local"
+                    disabled={slot.noEndTime}
                   />
                 </Grid>
                 <Grid item xs={8} md={1}>
@@ -1025,8 +1041,46 @@ const CandidateSectionManagement = () => {
                     type="number"
                     value={slot.max_attendees}
                     onChange={(e) => handleTimeSlotChange(index, 'max_attendees', parseInt(e.target.value))}
-                    inputProps={{ min: 1 }}
+                    inputProps={{ min: slot.noEndTime ? 0 : 1 }}
                     fullWidth
+                    disabled={slot.noEndTime}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={slot.noEndTime}
+                        onChange={(e) => {
+                          const newNoEndTime = e.target.checked;
+                          const updatedTimeSlots = [...timeSlots];
+                          updatedTimeSlots[index] = {
+                            ...updatedTimeSlots[index],
+                            noEndTime: newNoEndTime,
+                            // If noEndTime is true, set end_time to null, is_visible to false, and max_attendees to 0
+                            end_time: newNoEndTime ? null : (updatedTimeSlots[index].end_time || new Date(slot.start_time.getTime() + 60 * 60 * 1000)),
+                            is_visible: newNoEndTime ? false : updatedTimeSlots[index].is_visible,
+                            max_attendees: newNoEndTime ? 0 : updatedTimeSlots[index].max_attendees || 1
+                          };
+                          setTimeSlots(updatedTimeSlots);
+                        }}
+                        color="primary"
+                      />
+                    }
+                    label="No End Time"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={slot.is_visible !== undefined ? slot.is_visible : true}
+                        onChange={(e) => handleTimeSlotChange(index, 'is_visible', e.target.checked)}
+                        color="primary"
+                        disabled={slot.noEndTime}
+                      />
+                    }
+                    label="Visible on calendar"
                   />
                 </Grid>
                 <Grid item xs={4} md={1} sx={{ display: 'flex', alignItems: 'center' }}>
@@ -1101,9 +1155,9 @@ const CandidateSectionManagement = () => {
                   label="End Time"
                   value={timeSlotForm.end_time}
                   onChange={(newValue) => handleTimeSlotFormChange('end_time', newValue)}
-                  renderInput={(params) => <TextField {...params} fullWidth required />}
+                  slotProps={{ textField: { fullWidth: true, required: !timeSlotForm.noEndTime, disabled: timeSlotForm.noEndTime } }}
                   minDateTime={timeSlotForm.start_time}
-                  timezone="local"
+                  disabled={timeSlotForm.noEndTime}
                 />
               </Grid>
               <Grid item xs={12} md={2}>
@@ -1112,8 +1166,9 @@ const CandidateSectionManagement = () => {
                   type="number"
                   value={timeSlotForm.max_attendees}
                   onChange={(e) => handleTimeSlotFormChange('max_attendees', parseInt(e.target.value))}
-                  inputProps={{ min: 1 }}
+                  inputProps={{ min: timeSlotForm.noEndTime ? 0 : 1 }}
                   fullWidth
+                  disabled={timeSlotForm.noEndTime}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -1134,6 +1189,44 @@ const CandidateSectionManagement = () => {
                   multiline
                   rows={2}
                   placeholder="Optional details about this time slot"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={timeSlotForm.noEndTime}
+                      onChange={(e) => {
+                        const newNoEndTime = e.target.checked;
+                        setTimeSlotForm({
+                          ...timeSlotForm,
+                          noEndTime: newNoEndTime,
+                          // If noEndTime is true, set end_time to null, is_visible to false, and max_attendees to 0
+                          end_time: newNoEndTime ? null : (timeSlotForm.end_time || new Date(timeSlotForm.start_time.getTime() + 60 * 60 * 1000)),
+                          is_visible: newNoEndTime ? false : timeSlotForm.is_visible,
+                          max_attendees: newNoEndTime ? 0 : (timeSlotForm.max_attendees || 1)
+                        });
+                      }}
+                      color="primary"
+                    />
+                  }
+                  label="No End Time"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={timeSlotForm.is_visible}
+                      onChange={(e) => setTimeSlotForm({
+                        ...timeSlotForm,
+                        is_visible: e.target.checked
+                      })}
+                      name="is_visible"
+                      disabled={timeSlotForm.noEndTime}
+                    />
+                  }
+                  label="Visible on calendar"
                 />
               </Grid>
             </Grid>

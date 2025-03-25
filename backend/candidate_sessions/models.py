@@ -42,10 +42,11 @@ class CandidateSection(models.Model):
 class SessionTimeSlot(models.Model):
     candidate_section = models.ForeignKey(CandidateSection, on_delete=models.CASCADE, related_name='time_slots')
     start_time = models.DateTimeField()
-    end_time = models.DateTimeField()
+    end_time = models.DateTimeField(null=True, blank=True)
     max_attendees = models.PositiveIntegerField(default=1)
     location = models.CharField(max_length=200, blank=True)
     description = models.TextField(blank=True)
+    is_visible = models.BooleanField(default=True)
     
     def __str__(self):
         return f"{self.candidate_section.title} - {self.start_time.strftime('%Y-%m-%d %H:%M')}"

@@ -17,7 +17,7 @@ class SessionTimeSlotSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = SessionTimeSlot
-        fields = ['id', 'start_time', 'end_time', 'max_attendees', 'location', 'description', 'available_slots', 'is_full', 'attendees']
+        fields = ['id', 'start_time', 'end_time', 'max_attendees', 'location', 'description', 'available_slots', 'is_full', 'attendees', 'is_visible']
 
 class CandidateSectionSerializer(serializers.ModelSerializer):
     candidate = UserSerializer(read_only=True)
@@ -105,4 +105,4 @@ class SessionCreateSerializer(serializers.ModelSerializer):
 class SessionTimeSlotCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = SessionTimeSlot
-        fields = ['id', 'candidate_section', 'start_time', 'end_time', 'max_attendees', 'location', 'description']
+        fields = ['id', 'candidate_section', 'start_time', 'end_time', 'max_attendees', 'location', 'description', 'is_visible']
