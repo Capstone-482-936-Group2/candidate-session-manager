@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { AccountCircle } from '@mui/icons-material';
 
 const Navigation = () => {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, isAdmin, isFaculty } = useAuth();
   const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = React.useState(null);
 
@@ -37,6 +37,22 @@ const Navigation = () => {
           
           {currentUser ? (
             <>
+              <Button color="inherit" component={Link} to="/sessions">
+                Sessions
+              </Button>
+              
+              {isFaculty && (
+                <Button color="inherit" component={Link} to="/faculty-dashboard">
+                  Faculty Dashboard
+                </Button>
+              )}
+              
+              {isAdmin && (
+                <Button color="inherit" component={Link} to="/admin-dashboard">
+                  Admin Dashboard
+                </Button>
+              )}
+              
               <IconButton
                 size="large"
                 aria-label="account of current user"
@@ -45,7 +61,13 @@ const Navigation = () => {
                 onClick={handleMenu}
                 color="inherit"
               >
-                <AccountCircle />
+                {currentUser.first_name ? (
+                  <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
+                    {currentUser.first_name[0]}
+                  </Avatar>
+                ) : (
+                  <AccountCircle />
+                )}
               </IconButton>
               <Menu
                 id="menu-appbar"
