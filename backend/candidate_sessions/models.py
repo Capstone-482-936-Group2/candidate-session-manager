@@ -69,3 +69,46 @@ class SessionAttendee(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.time_slot}"
+
+class LocationType(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='created_location_types')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return self.name
+
+class Location(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    address = models.CharField(max_length=255, blank=True)
+    location_type = models.ForeignKey(LocationType, on_delete=models.CASCADE, related_name='locations')
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='created_locations')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return self.name
+
+class TimeSlotTemplate(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    start_time = models.TimeField(null=True, blank=True)
+    duration_minutes = models.PositiveIntegerField(default=60)
+    max_attendees = models.PositiveIntegerField(default=1)
+    
+    # Location fields
+    use_location_type = models.BooleanField(default=False)
+    custom_location = models.CharField(max_length=200, blank=True)
+    location = models.ForeignKey('Location', on_delete=models.SET_NULL, null=True, blank=True, related_name='templates')
+    location_type = models.ForeignKey('LocationType', on_delete=models.SET_NULL, null=True, blank=True, related_name='templates')
+    
+    notes = models.TextField(blank=True)
+    is_visible = models.BooleanField(default=True)
+    has_end_time = models.BooleanField(default=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='created_templates')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return self.name

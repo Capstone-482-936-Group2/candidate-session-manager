@@ -20,6 +20,7 @@ import RecruitingSeasons from './components/seasons/RecruitingSeasons';
 import CandidateSectionManagement from './components/admin/CandidateSectionManagement';
 import ProtectedRoute from './components/shared/ProtectedRoute';
 import RecruitingSeasonManagement from './components/admin/RecruitingSeasonManagement';
+import TimeSlotTemplateManagement from './components/admin/TimeSlotTemplateManagement';
 
 // Create theme
 const theme = createTheme({

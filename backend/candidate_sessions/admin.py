@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Session, CandidateSection, SessionTimeSlot, SessionAttendee
+from .models import Session, CandidateSection, SessionTimeSlot, SessionAttendee, Location, LocationType
 
 class SessionTimeSlotInline(admin.TabularInline):
     model = SessionTimeSlot
@@ -34,7 +34,18 @@ class SessionAttendeeAdmin(admin.ModelAdmin):
     list_filter = ('time_slot__candidate_section__session', 'registered_at')
     search_fields = ('user__email', 'time_slot__candidate_section__title')
 
+class LocationTypeAdmin(admin.ModelAdmin):
+    list_display = ('name', 'description', 'created_by', 'created_at')
+    search_fields = ('name',)
+
+class LocationAdmin(admin.ModelAdmin):
+    list_display = ('name', 'location_type', 'address', 'created_by', 'created_at')
+    list_filter = ('location_type',)
+    search_fields = ('name', 'address')
+
 admin.site.register(Session, SessionAdmin)
 admin.site.register(CandidateSection, CandidateSectionAdmin)
 admin.site.register(SessionTimeSlot, SessionTimeSlotAdmin)
 admin.site.register(SessionAttendee, SessionAttendeeAdmin)
+admin.site.register(LocationType, LocationTypeAdmin)
+admin.site.register(Location, LocationAdmin)

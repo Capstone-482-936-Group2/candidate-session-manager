@@ -67,11 +67,46 @@ export const timeSlotsAPI = {
   getTimeSlots: () => api.get('/timeslots/'),
   getTimeSlotById: (id) => api.get(`/timeslots/${id}/`),
   getTimeSlotsByCandidateSection: (sectionId) => api.get(`/timeslots/?candidate_section=${sectionId}`),
-  createTimeSlot: (timeSlotData) => api.post('/timeslots/', timeSlotData),
+  createTimeSlot: async (timeSlotData) => {
+    try {
+      const response = await api.post('/timeslots/', timeSlotData);
+      return response;
+    } catch (error) {
+      console.error('API Error creating time slot:', error);
+      throw error;
+    }
+  },
   updateTimeSlot: (id, timeSlotData) => api.patch(`/timeslots/${id}/`, timeSlotData),
   deleteTimeSlot: (id) => api.delete(`/timeslots/${id}/`),
   registerForTimeSlot: (id) => api.post(`/timeslots/${id}/register/`),
   unregisterFromTimeSlot: (id) => api.post(`/timeslots/${id}/unregister/`),
+};
+
+// Time Slot Templates API
+export const timeSlotTemplatesAPI = {
+  getTemplates: () => api.get('/timeslot-templates/'),
+  getTemplateById: (id) => api.get(`/timeslot-templates/${id}/`),
+  createTemplate: (templateData) => api.post('/timeslot-templates/', templateData),
+  updateTemplate: (id, templateData) => api.patch(`/timeslot-templates/${id}/`, templateData),
+  deleteTemplate: (id) => api.delete(`/timeslot-templates/${id}/`)
+};
+
+// Location Types API
+export const locationTypesAPI = {
+  getLocationTypes: () => api.get('/location-types/'),
+  getLocationTypeById: (id) => api.get(`/location-types/${id}/`),
+  createLocationType: (locationTypeData) => api.post('/location-types/', locationTypeData),
+  updateLocationType: (id, locationTypeData) => api.patch(`/location-types/${id}/`, locationTypeData),
+  deleteLocationType: (id) => api.delete(`/location-types/${id}/`)
+};
+
+// Locations API
+export const locationsAPI = {
+  getLocations: (params) => api.get('/locations/', { params }),
+  getLocationById: (id) => api.get(`/locations/${id}/`),
+  createLocation: (locationData) => api.post('/locations/', locationData),
+  updateLocation: (id, locationData) => api.patch(`/locations/${id}/`, locationData),
+  deleteLocation: (id) => api.delete(`/locations/${id}/`)
 };
 
 export default api;

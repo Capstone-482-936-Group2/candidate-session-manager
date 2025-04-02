@@ -11,13 +11,12 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { Add as AddIcon, Delete as DeleteIcon, ArrowBack as ArrowBackIcon, Edit as EditIcon } from '@mui/icons-material';
 import { format, parseISO } from 'date-fns';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { usersAPI, seasonsAPI, candidateSectionsAPI, timeSlotsAPI } from '../../api/api';
-import { useAuth } from '../../context/AuthContext';
+import { useParams, Link } from 'react-router-dom';
+import { usersAPI, seasonsAPI, candidateSectionsAPI, timeSlotsAPI, timeSlotTemplatesAPI } from '../../api/api';
+import TemplateSelectionDialog from './TemplateSelectionDialog';
 
 const CandidateSectionManagement = () => {
   const { seasonId } = useParams();
-  const navigate = useNavigate();
   const [season, setSeason] = useState(null);
   const [candidateSections, setCandidateSections] = useState([]);
   const [users, setUsers] = useState([]);
@@ -61,7 +60,24 @@ const CandidateSectionManagement = () => {
     noEndTime: false
   });
 
-  const { currentUser } = useAuth();
+  // Add a state for multiple time slots dialog
+  const [multipleDialogOpen, setMultipleDialogOpen] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [multipleForm, setMultipleForm] = useState({
+    startDate: new Date(),
+    numberOfSlots: 1,
+    daysBetween: 0,
+    minutesBetween: 60
+  });
+
+  // Add a new state for template dialog
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+
+  // Near the top of your component where other state variables are defined
+  const [templates, setTemplates] = useState([]);
+
+  // Update the state to include selectedCandidateSection
+  const [selectedCandidateSection, setSelectedCandidateSection] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -188,20 +204,8 @@ const CandidateSectionManagement = () => {
 
   const handleOpenTimeSlotDialog = (section) => {
     setSelectedSection(section);
-    // Create dates without timezone conversion
-    const now = new Date();
-    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
-    
-    setTimeSlots([{
-      start_time: now,
-      end_time: oneHourLater,
-      max_attendees: 1,
-      location: '',
-      description: '',
-      is_visible: true,
-      noEndTime: false
-    }]);
-    setTimeSlotDialogOpen(true);
+    setSelectedCandidateSection(section);
+    setTemplateDialogOpen(true);
   };
 
   const handleCloseTimeSlotDialog = () => {
@@ -599,6 +603,199 @@ const CandidateSectionManagement = () => {
       });
     }
   };
+
+  // Update handleTemplateSelect
+  const handleTemplateSelect = (template) => {
+    console.log('Selecting template:', template);
+    console.log('Current form data:', multipleForm);
+    console.log('Selected section:', selectedSection);
+    
+    // Get the template's start time
+    let startTime = new Date();
+    if (template.start_time) {
+      const [hours, minutes] = template.start_time.split(':');
+      startTime.setHours(parseInt(hours, 10));
+      startTime.setMinutes(parseInt(minutes, 10));
+      startTime.setSeconds(0);
+      startTime.setMilliseconds(0);
+    }
+
+    // Store the template ID and keep the section ID
+    setSelectedTemplate(template.id);
+    // Keep the selectedCandidateSection set (this is crucial for later use)
+    setSelectedCandidateSection(selectedSection);
+    setMultipleForm(prev => ({
+      ...prev,
+      startDate: startTime,
+      // Keep existing values or use defaults
+      numberOfSlots: prev.numberOfSlots || 1,
+      daysBetween: prev.daysBetween || 0,
+      minutesBetween: prev.minutesBetween || template.duration_minutes || 60
+    }));
+    setMultipleDialogOpen(true);
+  };
+
+  // Update handleMultipleFormChange
+  const handleMultipleFormChange = (e) => {
+    const { name, value } = e.target;
+    setMultipleForm(prev => ({
+      ...prev,
+      [name]: value === '' ? '' : Number(value)
+    }));
+    console.log('Updated form:', name, value); // Debug log
+  };
+
+  // Update handleSubmitMultipleSlots
+  const handleSubmitMultipleSlots = async () => {
+    try {
+      setLoading(true);
+      
+      if (!selectedTemplate || !selectedCandidateSection) {
+        throw new Error("Missing template or section");
+      }
+      
+      const template = templates.find(t => t.id === selectedTemplate);
+      if (!template) {
+        throw new Error("Selected template not found");
+      }
+      
+      // Create base time slot data using the correct section ID
+      const timeSlotBase = {
+        candidate_section: selectedCandidateSection.id, // Use the section ID directly
+        max_attendees: template.max_attendees || 1,
+        description: template.description || '',
+        is_visible: template.is_visible !== undefined ? template.is_visible : true,
+        location: template.custom_location || '',
+        notes: template.notes || ''
+      };
+      
+      console.log('Base time slot data:', timeSlotBase);
+      
+      // Create time slots array
+      const startDate = new Date(multipleForm.startDate);
+      const timeSlots = [];
+      
+      for (let i = 0; i < multipleForm.numberOfSlots; i++) {
+        const slotDate = new Date(startDate);
+        
+        if (multipleForm.daysBetween > 0) {
+          slotDate.setDate(slotDate.getDate() + (i * multipleForm.daysBetween));
+        }
+        
+        if (multipleForm.daysBetween === 0 || multipleForm.minutesBetween > 0) {
+          slotDate.setMinutes(slotDate.getMinutes() + (i * multipleForm.minutesBetween));
+        }
+        
+        const timeSlot = {
+          ...timeSlotBase,
+          start_time: slotDate.toISOString(),
+        };
+        
+        if (template.has_end_time !== false) {
+          const endDate = new Date(slotDate);
+          endDate.setMinutes(endDate.getMinutes() + (template.duration_minutes || 60));
+          timeSlot.end_time = endDate.toISOString();
+        }
+        
+        timeSlots.push(timeSlot);
+      }
+      
+      console.log('Time slots to create:', timeSlots);
+      
+      // Create all time slots
+      for (const slot of timeSlots) {
+        try {
+          const response = await timeSlotsAPI.createTimeSlot(slot);
+          console.log('Created time slot:', response.data);
+        } catch (error) {
+          console.error('Failed to create time slot:', error.response?.data);
+          throw new Error(JSON.stringify(error.response?.data || {}));
+        }
+      }
+      
+      // Success handling
+      await fetchCandidateSections();
+      setSnackbar({
+        open: true,
+        message: `Successfully created ${timeSlots.length} time slots`,
+        severity: 'success'
+      });
+      setMultipleDialogOpen(false);
+      
+    } catch (error) {
+      console.error('Error creating time slots:', error);
+      setSnackbar({
+        open: true,
+        message: `Failed to create time slots: ${error.message}`,
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+      // Fix for reopening dialogs - make sure they're closed on error too
+      setTemplateDialogOpen(false);
+    }
+  };
+
+  // Add these handler functions if they don't exist
+  const handleCloseTemplateDialog = () => {
+    setTemplateDialogOpen(false);
+    setMultipleDialogOpen(false); // Also close multiple dialog if open
+    setSelectedTemplate(null);
+  };
+
+  const handleCustomTimeSlot = () => {
+    const now = new Date();
+    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+    
+    setTimeSlotForm({
+      start_time: now,
+      end_time: oneHourLater,
+      max_attendees: 1,
+      location: '',
+      description: '',
+      is_visible: true,
+      noEndTime: false
+    });
+    
+    setTimeSlotDialogOpen(true);
+  };
+
+  // Add this with your other functions
+  const fetchCandidateSections = async () => {
+    try {
+      setLoading(true);
+      const response = await candidateSectionsAPI.getCandidateSections();
+      setCandidateSections(response.data);
+    } catch (err) {
+      console.error('Error fetching candidate sections:', err);
+      setSnackbar({
+        open: true,
+        message: 'Failed to load candidate sections',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const response = await timeSlotTemplatesAPI.getTemplates();
+        console.log('Fetched templates:', response.data);
+        setTemplates(response.data);
+      } catch (err) {
+        console.error('Error fetching templates:', err);
+        setSnackbar({
+          open: true,
+          message: 'Failed to load templates',
+          severity: 'error'
+        });
+      }
+    };
+    
+    fetchTemplates();
+  }, []);
 
   if (loading) return (
     <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -1241,6 +1438,153 @@ const CandidateSectionManagement = () => {
             </Button>
           </DialogActions>
         </Dialog>
+        
+        {/* Multiple Slots Dialog */}
+        <Dialog
+          open={multipleDialogOpen}
+          onClose={() => {
+            setMultipleDialogOpen(false);
+            setSelectedTemplate(null);
+          }}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Create Time Slots from Template</DialogTitle>
+          <DialogContent>
+            <Box sx={{ mt: 2 }}>
+              {selectedTemplate && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="subtitle1">
+                    Template: {templates.find(t => t.id === selectedTemplate)?.name}
+                  </Typography>
+                  <Typography variant="body2">
+                    Section: {selectedSection ? `Section ${selectedSection}` : 'No section selected'}
+                  </Typography>
+                </Box>
+              )}
+              
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="Start Date"
+                  value={multipleForm.startDate}
+                  onChange={(newDate) => {
+                    if (newDate) {
+                      const template = templates.find(t => t.id === selectedTemplate);
+                      if (template?.start_time) {
+                        const [hours, minutes] = template.start_time.split(':');
+                        newDate.setHours(parseInt(hours, 10));
+                        newDate.setMinutes(parseInt(minutes, 10));
+                      }
+                      setMultipleForm(prev => ({
+                        ...prev,
+                        startDate: newDate
+                      }));
+                    }
+                  }}
+                  renderInput={(params) => <TextField {...params} fullWidth margin="normal" />}
+                />
+              </LocalizationProvider>
+
+              <TextField
+                name="numberOfSlots"
+                label="Number of Slots"
+                type="number"
+                value={multipleForm.numberOfSlots}
+                onChange={handleMultipleFormChange}
+                fullWidth
+                margin="normal"
+                InputProps={{ inputProps: { min: 1 } }}
+              />
+
+              <TextField
+                name="daysBetween"
+                label="Days Between Slots"
+                type="number"
+                value={multipleForm.daysBetween}
+                onChange={handleMultipleFormChange}
+                fullWidth
+                margin="normal"
+                InputProps={{ inputProps: { min: 0 } }}
+              />
+
+              {multipleForm.daysBetween === 0 && (
+                <TextField
+                  name="minutesBetween"
+                  label="Minutes Between Slots"
+                  type="number"
+                  value={multipleForm.minutesBetween}
+                  onChange={handleMultipleFormChange}
+                  fullWidth
+                  margin="normal"
+                  InputProps={{ inputProps: { min: 0 } }}
+                />
+              )}
+
+              {/* Preview section */}
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle2">Time Slots Preview:</Typography>
+                <List dense>
+                  {Array.from({ length: Math.min(multipleForm.numberOfSlots, 5) }).map((_, index) => {
+                    const date = new Date(multipleForm.startDate);
+                    if (multipleForm.daysBetween > 0) {
+                      date.setDate(date.getDate() + (index * multipleForm.daysBetween));
+                    }
+                    if (multipleForm.minutesBetween > 0 && multipleForm.daysBetween === 0) {
+                      date.setMinutes(date.getMinutes() + (index * multipleForm.minutesBetween));
+                    }
+                    return (
+                      <ListItem key={index}>
+                        <ListItemText 
+                          primary={date.toLocaleString()} 
+                        />
+                      </ListItem>
+                    );
+                  })}
+                </List>
+              </Box>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button 
+              onClick={() => {
+                setMultipleDialogOpen(false);
+                setSelectedTemplate(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSubmitMultipleSlots}
+              variant="contained" 
+              color="primary"
+              disabled={!selectedTemplate || !selectedSection}
+            >
+              Create Slots
+            </Button>
+          </DialogActions>
+        </Dialog>
+        
+        {/* Template Selection Dialog */}
+        <TemplateSelectionDialog
+          open={templateDialogOpen}
+          onClose={handleCloseTemplateDialog}
+          onSelectTemplate={handleTemplateSelect}
+          onCustomOption={handleCustomTimeSlot}
+        >
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Select Template</InputLabel>
+            <Select
+              value={selectedTemplate || ''}
+              onChange={(e) => handleTemplateSelect(e.target.value)}
+            >
+              {templates.map((template) => (
+                <MenuItem key={template.id} value={template.id}>
+                  {template.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </TemplateSelectionDialog>
         
         {/* Snackbar for notifications */}
         <Snackbar 

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Session, CandidateSection, SessionTimeSlot, SessionAttendee
+from .models import Session, CandidateSection, SessionTimeSlot, SessionAttendee, TimeSlotTemplate, LocationType, Location
 from users.serializers import UserSerializer
 from users.models import User
 
@@ -106,3 +106,41 @@ class SessionTimeSlotCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = SessionTimeSlot
         fields = ['id', 'candidate_section', 'start_time', 'end_time', 'max_attendees', 'location', 'description', 'is_visible']
+
+class LocationTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LocationType
+        fields = ['id', 'name', 'description', 'created_by', 'created_at']
+        read_only_fields = ['created_by', 'created_at']
+        
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)
+
+class LocationSerializer(serializers.ModelSerializer):
+    location_type_name = serializers.CharField(source='location_type.name', read_only=True)
+    
+    class Meta:
+        model = Location
+        fields = ['id', 'name', 'description', 'location_type', 'location_type_name', 'address', 'notes', 'created_by', 'created_at']
+        read_only_fields = ['created_by', 'created_at', 'location_type_name']
+        
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)
+
+class TimeSlotTemplateSerializer(serializers.ModelSerializer):
+    location_name = serializers.CharField(source='location.name', read_only=True)
+    location_type_name = serializers.CharField(source='location_type.name', read_only=True)
+    
+    class Meta:
+        model = TimeSlotTemplate
+        fields = ['id', 'name', 'description', 'start_time', 'duration_minutes', 'max_attendees', 
+                 'use_location_type', 'custom_location', 'location', 'location_name', 
+                 'location_type', 'location_type_name', 'notes', 'is_visible', 
+                 'has_end_time', 'created_by', 'created_at']
+        read_only_fields = ['created_by', 'created_at', 'location_name', 'location_type_name']
+        
+    def create(self, validated_data):
+        validated_data['created_by'] = self.context['request'].user
+        return super().create(validated_data)

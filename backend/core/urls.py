@@ -22,7 +22,10 @@ from candidate_sessions.views import (
     SessionViewSet, 
     CandidateSectionViewSet, 
     SessionTimeSlotViewSet, 
-    SessionAttendeeViewSet
+    SessionAttendeeViewSet,
+    TimeSlotTemplateViewSet,
+    LocationTypeViewSet,
+    LocationViewSet
 )
 
 router = DefaultRouter()
@@ -31,6 +34,9 @@ router.register(r'seasons', SessionViewSet, basename='season')
 router.register(r'candidate-sections', CandidateSectionViewSet, basename='candidate-section')
 router.register(r'timeslots', SessionTimeSlotViewSet, basename='timeslot')
 router.register(r'attendees', SessionAttendeeViewSet, basename='attendee')
+router.register(r'timeslot-templates', TimeSlotTemplateViewSet, basename='timeslot-template')
+router.register(r'location-types', LocationTypeViewSet, basename='location-type')
+router.register(r'locations', LocationViewSet, basename='location')
 
 # API URLs
 api_urlpatterns = [
