@@ -5,7 +5,6 @@ import RecruitingSeasonManagement from './RecruitingSeasonManagement';
 import TimeSlotTemplateManagement from './TimeSlotTemplateManagement';
 import LocationManagement from './LocationManagement';
 import { useLocation } from 'react-router-dom';
-import UserManagement from './UserManagement';
 import FormManagement from '../../pages/FormManagement';
 
 function TabPanel(props) {
@@ -60,7 +59,7 @@ const AdminDashboard = () => {
         {tabValue === 3 && <LocationManagement />}
         {tabValue === 4 && <FormManagement />}
       </Box>
-    </Container>
+    </Box>
   );
 };
 

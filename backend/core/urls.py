@@ -25,7 +25,7 @@ from candidate_sessions.views import (
     SessionAttendeeViewSet,
     TimeSlotTemplateViewSet,
     LocationTypeViewSet,
-    LocationViewSet
+    LocationViewSet,
     FormViewSet,
     FormSubmissionViewSet
 )
