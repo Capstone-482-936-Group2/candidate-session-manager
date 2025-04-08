@@ -10,28 +10,74 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Function to store auth state in localStorage
+  const storeAuthState = (user) => {
+    if (user) {
+      localStorage.setItem('authState', JSON.stringify(user));
+    } else {
+      localStorage.removeItem('authState');
+    }
+  };
+
+  // Function to load auth state from localStorage
+  const loadAuthState = () => {
+    const storedAuth = localStorage.getItem('authState');
+    if (storedAuth) {
+      try {
+        return JSON.parse(storedAuth);
+      } catch (e) {
+        console.error('Error parsing stored auth state:', e);
+        return null;
+      }
+    }
+    return null;
+  };
+
   useEffect(() => {
     const loadUser = async () => {
       try {
+        // First check localStorage for existing auth state
+        const storedUser = loadAuthState();
+        if (storedUser) {
+          setCurrentUser(storedUser);
+        }
+
+        // Then verify with the server
         const response = await authAPI.getCurrentUser();
-        setCurrentUser(response.data);
+        const user = response.data;
+        setCurrentUser(user);
+        storeAuthState(user);
       } catch (err) {
         console.log('Not authenticated');
         setCurrentUser(null);
+        storeAuthState(null);
       } finally {
         setLoading(false);
       }
     };
 
     loadUser();
+
+    // Listen for storage events to sync auth state across tabs
+    const handleStorageChange = (e) => {
+      if (e.key === 'authState') {
+        const newUser = e.newValue ? JSON.parse(e.newValue) : null;
+        setCurrentUser(newUser);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
   const loginWithGoogle = async (accessToken) => {
     setError(null);
     try {
       const response = await authAPI.googleLogin(accessToken);
-      setCurrentUser(response.data);
-      return response.data;
+      const user = response.data;
+      setCurrentUser(user);
+      storeAuthState(user);
+      return user;
     } catch (err) {
       setError(err.response?.data?.error || 'Google login failed');
       throw err;
@@ -42,6 +88,7 @@ export const AuthProvider = ({ children }) => {
     try {
       await authAPI.logout();
       setCurrentUser(null);
+      storeAuthState(null);
     } catch (err) {
       setError(err.response?.data?.error || 'Logout failed');
       throw err;

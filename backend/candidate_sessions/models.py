@@ -87,6 +87,7 @@ class FormSubmission(models.Model):
     submitted_at = models.DateTimeField(auto_now_add=True)
     answers = models.JSONField()  # Stores the user's answers
     is_completed = models.BooleanField(default=False)
+    form_version = models.JSONField(default=dict)  # Store form field metadata at submission time
 
     def clean(self):
         # Only enforce uniqueness for completed submissions
@@ -98,6 +99,21 @@ class FormSubmission(models.Model):
             ).exclude(pk=self.pk)
             if existing.exists():
                 raise ValidationError("You have already submitted this form")
+
+    def save(self, *args, **kwargs):
+        # Store form field metadata when saving
+        if not self.form_version:
+            self.form_version = {
+                'fields': {
+                    str(field.id): {
+                        'type': field.type,
+                        'label': field.label,
+                        'required': field.required
+                    }
+                    for field in self.form.form_fields.all()
+                }
+            }
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.submitted_by.email} - {self.form.title}"

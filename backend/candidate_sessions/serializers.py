@@ -159,9 +159,27 @@ class FormFieldSerializer(serializers.ModelSerializer):
         
         # Only update options for fields that support them
         if instance.type in ['select', 'radio', 'checkbox']:
-            instance.options.all().delete()
+            # Preserve existing options and update/create as needed
+            existing_options = {opt.id: opt for opt in instance.options.all()}
+            updated_option_ids = set()
+            
             for option_data in options_data:
-                FormFieldOption.objects.create(field=instance, **option_data)
+                option_id = option_data.get('id')
+                if option_id and option_id in existing_options:
+                    # Update existing option
+                    option = existing_options[option_id]
+                    for attr, value in option_data.items():
+                        setattr(option, attr, value)
+                    option.save()
+                    updated_option_ids.add(option_id)
+                else:
+                    # Create new option
+                    FormFieldOption.objects.create(field=instance, **option_data)
+            
+            # Delete options that were not updated
+            for option_id, option in existing_options.items():
+                if option_id not in updated_option_ids:
+                    option.delete()
         
         return instance
 
@@ -171,29 +189,19 @@ class FormSubmissionFormSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'description']
 
 class FormSerializer(serializers.ModelSerializer):
-    form_fields = FormFieldSerializer(many=True)
-    assigned_to_ids = serializers.ListField(
-        child=serializers.IntegerField(),
-        write_only=True,
-        required=False
-    )
+    form_fields = FormFieldSerializer(many=True, required=False)
+    assigned_to_ids = serializers.ListField(child=serializers.IntegerField(), write_only=True, required=False)
     assigned_to = UserSerializer(many=True, read_only=True)
-
+    
     class Meta:
         model = Form
-        fields = ['id', 'title', 'description', 'created_by', 'created_at', 'form_fields', 'assigned_to', 'assigned_to_ids', 'is_active']
-        read_only_fields = ['created_by', 'created_at']
-
+        fields = ['id', 'title', 'description', 'form_fields', 'assigned_to', 'assigned_to_ids', 'is_active']
+    
     def create(self, validated_data):
         form_fields_data = validated_data.pop('form_fields', [])
-        assigned_to_ids = validated_data.pop('assigned_to_ids', [])
+        assigned_to_ids = validated_data.pop('assigned_to_ids', None)
         
-        # Create the form with an empty fields list
         form = Form.objects.create(**validated_data)
-        
-        # Add assigned users
-        if assigned_to_ids:
-            form.assigned_to.set(assigned_to_ids)
         
         # Create form fields
         for field_data in form_fields_data:
@@ -204,6 +212,10 @@ class FormSerializer(serializers.ModelSerializer):
             for option_data in options_data:
                 FormFieldOption.objects.create(field=field, **option_data)
         
+        # Assign users if provided
+        if assigned_to_ids is not None:
+            form.assigned_to.set(assigned_to_ids)
+        
         return form
 
     def update(self, instance, validated_data):
@@ -211,14 +223,33 @@ class FormSerializer(serializers.ModelSerializer):
         assigned_to_ids = validated_data.pop('assigned_to_ids', None)
         
         # Update form fields
-        instance.form_fields.all().delete()
+        existing_fields = {field.id: field for field in instance.form_fields.all()}
+        updated_field_ids = set()
+        
         for field_data in form_fields_data:
+            field_id = field_data.get('id')
             options_data = field_data.pop('options', [])
-            field = FormField.objects.create(form=instance, **field_data)
             
-            # Create options for select/radio/checkbox fields
-            for option_data in options_data:
-                FormFieldOption.objects.create(field=field, **option_data)
+            if field_id and field_id in existing_fields:
+                # Update existing field
+                field = existing_fields[field_id]
+                field_serializer = FormFieldSerializer(field, data=field_data, partial=True)
+                if field_serializer.is_valid():
+                    field_serializer.save()
+                updated_field_ids.add(field_id)
+            else:
+                # Create new field
+                field = FormField.objects.create(form=instance, **field_data)
+                updated_field_ids.add(field.id)
+                
+                # Create options for new field
+                for option_data in options_data:
+                    FormFieldOption.objects.create(field=field, **option_data)
+        
+        # Delete fields that were not updated
+        for field_id, field in existing_fields.items():
+            if field_id not in updated_field_ids:
+                field.delete()
         
         # Update assigned users if provided
         if assigned_to_ids is not None:
@@ -236,8 +267,8 @@ class FormSubmissionSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = FormSubmission
-        fields = ['id', 'form', 'submitted_by', 'answers', 'is_completed', 'submitted_at']
-        read_only_fields = ['submitted_by', 'submitted_at']
+        fields = ['id', 'form', 'submitted_by', 'answers', 'is_completed', 'submitted_at', 'form_version']
+        read_only_fields = ['submitted_by', 'submitted_at', 'form_version']
 
     def validate_answers(self, value):
         form = self.context.get('form')
@@ -289,3 +320,27 @@ class FormSubmissionSerializer(serializers.ModelSerializer):
 
         validated_data['submitted_by'] = self.context['request'].user
         return super().create(validated_data)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        
+        # If viewing a submission, use the stored form version to map answers
+        if instance.form_version:
+            # Create a mapping of current field IDs to original field IDs
+            field_mapping = {}
+            for field in instance.form.form_fields.all():
+                # Find the original field that matches this one
+                for orig_id, orig_data in instance.form_version['fields'].items():
+                    if orig_data['label'] == field.label and orig_data['type'] == field.type:
+                        field_mapping[str(field.id)] = orig_id
+                        break
+            
+            # Remap answers to use current field IDs
+            remapped_answers = {}
+            for current_id, orig_id in field_mapping.items():
+                if orig_id in instance.answers:
+                    remapped_answers[current_id] = instance.answers[orig_id]
+            
+            data['answers'] = remapped_answers
+        
+        return data
