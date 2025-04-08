@@ -605,13 +605,11 @@ const CandidateSectionManagement = () => {
   };
 
   // Update handleTemplateSelect
-  const handleTemplateSelect = (template) => {
+  const handleTemplateSelect = (template, numberOfSlots, intervalMinutes, intervalDays, startDate) => {
     console.log('Selecting template:', template);
-    console.log('Current form data:', multipleForm);
-    console.log('Selected section:', selectedSection);
     
     // Get the template's start time
-    let startTime = new Date();
+    let startTime = new Date(startDate);
     if (template.start_time) {
       const [hours, minutes] = template.start_time.split(':');
       startTime.setHours(parseInt(hours, 10));
@@ -622,16 +620,13 @@ const CandidateSectionManagement = () => {
 
     // Store the template ID and keep the section ID
     setSelectedTemplate(template.id);
-    // Keep the selectedCandidateSection set (this is crucial for later use)
     setSelectedCandidateSection(selectedSection);
-    setMultipleForm(prev => ({
-      ...prev,
+    setMultipleForm({
       startDate: startTime,
-      // Keep existing values or use defaults
-      numberOfSlots: prev.numberOfSlots || 1,
-      daysBetween: prev.daysBetween || 0,
-      minutesBetween: prev.minutesBetween || template.duration_minutes || 60
-    }));
+      numberOfSlots: numberOfSlots,
+      daysBetween: intervalDays,
+      minutesBetween: intervalMinutes || template.duration_minutes || 60
+    });
     setMultipleDialogOpen(true);
   };
 
@@ -659,9 +654,9 @@ const CandidateSectionManagement = () => {
         throw new Error("Selected template not found");
       }
       
-      // Create base time slot data using the correct section ID
+      // Create base time slot data
       const timeSlotBase = {
-        candidate_section: selectedCandidateSection.id, // Use the section ID directly
+        candidate_section: selectedCandidateSection.id,
         max_attendees: template.max_attendees || 1,
         description: template.description || '',
         is_visible: template.is_visible !== undefined ? template.is_visible : true,
@@ -669,38 +664,35 @@ const CandidateSectionManagement = () => {
         notes: template.notes || ''
       };
       
-      console.log('Base time slot data:', timeSlotBase);
-      
       // Create time slots array
       const startDate = new Date(multipleForm.startDate);
       const timeSlots = [];
       
       for (let i = 0; i < multipleForm.numberOfSlots; i++) {
+        // Create a new date object for each slot to avoid modifying the same reference
         const slotDate = new Date(startDate);
         
         if (multipleForm.daysBetween > 0) {
+          // Add days without affecting the time
           slotDate.setDate(slotDate.getDate() + (i * multipleForm.daysBetween));
-        }
-        
-        if (multipleForm.daysBetween === 0 || multipleForm.minutesBetween > 0) {
+        } else if (multipleForm.minutesBetween > 0) {
+          // Add minutes only if not using days
           slotDate.setMinutes(slotDate.getMinutes() + (i * multipleForm.minutesBetween));
         }
         
         const timeSlot = {
           ...timeSlotBase,
-          start_time: slotDate.toISOString(),
+          start_time: slotDate.toISOString().slice(0, 19), // Format to remove milliseconds
         };
         
         if (template.has_end_time !== false) {
           const endDate = new Date(slotDate);
           endDate.setMinutes(endDate.getMinutes() + (template.duration_minutes || 60));
-          timeSlot.end_time = endDate.toISOString();
+          timeSlot.end_time = endDate.toISOString().slice(0, 19);
         }
         
         timeSlots.push(timeSlot);
       }
-      
-      console.log('Time slots to create:', timeSlots);
       
       // Create all time slots
       for (const slot of timeSlots) {
@@ -721,6 +713,7 @@ const CandidateSectionManagement = () => {
         severity: 'success'
       });
       setMultipleDialogOpen(false);
+      setTemplateDialogOpen(false);
       
     } catch (error) {
       console.error('Error creating time slots:', error);
@@ -731,8 +724,6 @@ const CandidateSectionManagement = () => {
       });
     } finally {
       setLoading(false);
-      // Fix for reopening dialogs - make sure they're closed on error too
-      setTemplateDialogOpen(false);
     }
   };
 
@@ -1449,7 +1440,7 @@ const CandidateSectionManagement = () => {
           maxWidth="sm"
           fullWidth
         >
-          <DialogTitle>Create Time Slots from Template</DialogTitle>
+          <DialogTitle>Confirm Time Slots</DialogTitle>
           <DialogContent>
             <Box sx={{ mt: 2 }}>
               {selectedTemplate && (
@@ -1457,67 +1448,16 @@ const CandidateSectionManagement = () => {
                   <Typography variant="subtitle1">
                     Template: {templates.find(t => t.id === selectedTemplate)?.name}
                   </Typography>
+                  <Typography variant="body2" gutterBottom>
+                    Creating {multipleForm.numberOfSlots} time slots
+                    {multipleForm.daysBetween > 0 
+                      ? ` spaced ${multipleForm.daysBetween} days apart`
+                      : ` spaced ${multipleForm.minutesBetween} minutes apart`}
+                  </Typography>
                   <Typography variant="body2">
-                    Section: {selectedSection ? `Section ${selectedSection}` : 'No section selected'}
+                    Starting from: {new Date(multipleForm.startDate).toLocaleString()}
                   </Typography>
                 </Box>
-              )}
-              
-              <LocalizationProvider dateAdapter={AdapterDateFns}>
-                <DatePicker
-                  label="Start Date"
-                  value={multipleForm.startDate}
-                  onChange={(newDate) => {
-                    if (newDate) {
-                      const template = templates.find(t => t.id === selectedTemplate);
-                      if (template?.start_time) {
-                        const [hours, minutes] = template.start_time.split(':');
-                        newDate.setHours(parseInt(hours, 10));
-                        newDate.setMinutes(parseInt(minutes, 10));
-                      }
-                      setMultipleForm(prev => ({
-                        ...prev,
-                        startDate: newDate
-                      }));
-                    }
-                  }}
-                  renderInput={(params) => <TextField {...params} fullWidth margin="normal" />}
-                />
-              </LocalizationProvider>
-
-              <TextField
-                name="numberOfSlots"
-                label="Number of Slots"
-                type="number"
-                value={multipleForm.numberOfSlots}
-                onChange={handleMultipleFormChange}
-                fullWidth
-                margin="normal"
-                InputProps={{ inputProps: { min: 1 } }}
-              />
-
-              <TextField
-                name="daysBetween"
-                label="Days Between Slots"
-                type="number"
-                value={multipleForm.daysBetween}
-                onChange={handleMultipleFormChange}
-                fullWidth
-                margin="normal"
-                InputProps={{ inputProps: { min: 0 } }}
-              />
-
-              {multipleForm.daysBetween === 0 && (
-                <TextField
-                  name="minutesBetween"
-                  label="Minutes Between Slots"
-                  type="number"
-                  value={multipleForm.minutesBetween}
-                  onChange={handleMultipleFormChange}
-                  fullWidth
-                  margin="normal"
-                  InputProps={{ inputProps: { min: 0 } }}
-                />
               )}
 
               {/* Preview section */}
@@ -1528,8 +1468,7 @@ const CandidateSectionManagement = () => {
                     const date = new Date(multipleForm.startDate);
                     if (multipleForm.daysBetween > 0) {
                       date.setDate(date.getDate() + (index * multipleForm.daysBetween));
-                    }
-                    if (multipleForm.minutesBetween > 0 && multipleForm.daysBetween === 0) {
+                    } else if (multipleForm.minutesBetween > 0) {
                       date.setMinutes(date.getMinutes() + (index * multipleForm.minutesBetween));
                     }
                     return (
@@ -1540,6 +1479,14 @@ const CandidateSectionManagement = () => {
                       </ListItem>
                     );
                   })}
+                  {multipleForm.numberOfSlots > 5 && (
+                    <ListItem>
+                      <ListItemText 
+                        primary={`... and ${multipleForm.numberOfSlots - 5} more slots`}
+                        sx={{ fontStyle: 'italic' }}
+                      />
+                    </ListItem>
+                  )}
                 </List>
               </Box>
             </Box>
@@ -1557,7 +1504,7 @@ const CandidateSectionManagement = () => {
               onClick={handleSubmitMultipleSlots}
               variant="contained" 
               color="primary"
-              disabled={!selectedTemplate || !selectedSection}
+              disabled={!selectedTemplate || !selectedCandidateSection}
             >
               Create Slots
             </Button>
