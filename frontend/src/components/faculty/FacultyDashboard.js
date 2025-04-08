@@ -152,7 +152,7 @@ const FacultyDashboard = () => {
                     </Typography>
 
                     <Typography variant="subtitle1" gutterBottom>
-                      {format(parseISO(season.start_date), 'MMM d, yyyy')} - {format(parseISO(season.end_date), 'MMM d, yyyy')}
+                      {season.start_date ? format(parseISO(season.start_date), 'MMM d, yyyy') : 'No start date'} - {season.end_date ? format(parseISO(season.end_date), 'MMM d, yyyy') : 'No end date'}
                     </Typography>
                   </CardContent>
                   <Button 
@@ -177,7 +177,7 @@ const FacultyDashboard = () => {
               {selectedSeason.title}
             </Typography>
             <Typography variant="subtitle1" gutterBottom>
-              {format(parseISO(selectedSeason.start_date), 'MMM d, yyyy')} - {format(parseISO(selectedSeason.end_date), 'MMM d, yyyy')}
+              {selectedSeason.start_date ? format(parseISO(selectedSeason.start_date), 'MMM d, yyyy') : 'No start date'} - {selectedSeason.end_date ? format(parseISO(selectedSeason.end_date), 'MMM d, yyyy') : 'No end date'}
             </Typography>
           </Box>
 
@@ -192,126 +192,130 @@ const FacultyDashboard = () => {
             </Paper>
           ) : (
             <Grid container spacing={3}>
-              {candidateSections.map(section => (
-                <Grid item xs={12} md={6} key={section.id}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        {section.candidate.first_name} {section.candidate.last_name}
-                      </Typography>
-                      <Typography variant="subtitle2" color="textSecondary" gutterBottom>
-                        {section.candidate.email}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                        {section.needs_transportation && (
-                          <Chip 
-                            label="Needs Transportation" 
-                            color="secondary" 
-                            size="small"
-                          />
-                        )}
-                        {section.arrival_date && (
-                          <Chip 
-                            label={`Arrives: ${format(parseISO(section.arrival_date), 'MMM d, yyyy')}`}
-                            size="small"
-                            color="info"
-                          />
-                        )}
-                        {section.leaving_date && (
-                          <Chip 
-                            label={`Leaves: ${format(parseISO(section.leaving_date), 'MMM d, yyyy')}`}
-                            size="small"
-                            color="info"
-                          />
-                        )}
-                      </Box>
-                      <Typography variant="body2" paragraph>
-                        {section.description}
-                      </Typography>
-
-                      <Divider sx={{ my: 2 }} />
-
-                      <Typography variant="subtitle2">
-                        Time Slots:
-                      </Typography>
-
-                      {section.time_slots && section.time_slots.length > 0 ? (
-                        <List dense>
-                          {section.time_slots.map(slot => (
-                            <ListItem 
-                              key={slot.id}
-                              sx={{ 
-                                backgroundColor: slot.attendees?.length >= slot.max_attendees ? '#f5f5f5' : 'white',
-                                borderRadius: 1,
-                                mb: 1,
-                                border: '1px solid',
-                                borderColor: isRegistered(slot) ? 'primary.main' : 'divider'
-                              }}
-                            >
-                              <ListItemText
-                                primary={`${format(parseISO(slot.start_time), 'MMM d, yyyy h:mm a')} - ${format(parseISO(slot.end_time), 'h:mm a')}`}
-                                secondary={
-                                  <Box sx={{ mt: 1 }}>
-                                    {slot.location && (
-                                      <Typography variant="body2" sx={{ mb: 0.5 }}>
-                                        Location: {slot.location}
-                                      </Typography>
-                                    )}
-                                    {slot.description && (
-                                      <Typography variant="body2" sx={{ mb: 0.5 }}>
-                                        {slot.description}
-                                      </Typography>
-                                    )}
-                                    <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                                      <Chip 
-                                        label={`${slot.attendees?.length || 0}/${slot.max_attendees} registered`}
-                                        size="small"
-                                        color={slot.attendees?.length >= slot.max_attendees ? "error" : "success"}
-                                      />
-                                      {isRegistered(slot) && (
-                                        <Chip 
-                                          label="You are registered"
-                                          size="small"
-                                          color="primary"
-                                        />
-                                      )}
-                                    </Box>
-                                  </Box>
-                                }
-                              />
-                              {isRegistered(slot) ? (
-                                <Button 
-                                  variant="outlined"
-                                  color="error" 
-                                  onClick={() => handleUnregister(slot.id)}
-                                  disabled={loading}
-                                  size="small"
-                                >
-                                  Unregister
-                                </Button>
-                              ) : (
-                                <Button 
-                                  variant="contained"
-                                  color="primary" 
-                                  onClick={() => handleRegister(slot.id)}
-                                  disabled={loading || (slot.attendees?.length >= slot.max_attendees)}
-                                  size="small"
-                                >
-                                  Register
-                                </Button>
-                              )}
-                            </ListItem>
-                          ))}
-                        </List>
-                      ) : (
-                        <Typography variant="body2" color="textSecondary">
-                          No time slots available.
+              {candidateSections
+                .filter(section => section.time_slots?.some(slot => Boolean(slot.is_visible)))
+                .map(section => (
+                  <Grid item xs={12} md={6} key={section.id}>
+                    <Card>
+                      <CardContent>
+                        <Typography variant="h6" gutterBottom>
+                          {section.candidate.first_name} {section.candidate.last_name}
                         </Typography>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
+                        <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                          {section.candidate.email}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                          {section.needs_transportation && (
+                            <Chip 
+                              label="Needs Transportation" 
+                              color="secondary" 
+                              size="small"
+                            />
+                          )}
+                          {section.arrival_date && (
+                            <Chip 
+                              label={`Arrives: ${section.arrival_date ? format(parseISO(section.arrival_date), 'MMM d, yyyy') : 'No arrival date'}`}
+                              size="small"
+                              color="info"
+                            />
+                          )}
+                          {section.leaving_date && (
+                            <Chip 
+                              label={`Leaves: ${section.leaving_date ? format(parseISO(section.leaving_date), 'MMM d, yyyy') : 'No leaving date'}`}
+                              size="small"
+                              color="info"
+                            />
+                          )}
+                        </Box>
+                        <Typography variant="body2" paragraph>
+                          {section.description}
+                        </Typography>
+
+                        <Divider sx={{ my: 2 }} />
+
+                        <Typography variant="subtitle2">
+                          Time Slots:
+                        </Typography>
+
+                        {section.time_slots && section.time_slots.length > 0 ? (
+                          <List dense>
+                            {section.time_slots
+                              .filter(slot => slot.is_visible !== false)
+                              .map(slot => (
+                                <ListItem 
+                                  key={slot.id}
+                                  sx={{ 
+                                    backgroundColor: slot.attendees?.length >= slot.max_attendees ? '#f5f5f5' : 'white',
+                                    borderRadius: 1,
+                                    mb: 1,
+                                    border: '1px solid',
+                                    borderColor: isRegistered(slot) ? 'primary.main' : 'divider'
+                                  }}
+                                >
+                                  <ListItemText
+                                    primary={`${slot.start_time ? format(parseISO(slot.start_time), 'MMM d, yyyy h:mm a') : 'No start time'} - ${slot.end_time ? format(parseISO(slot.end_time), 'h:mm a') : 'No end time'}`}
+                                    secondary={
+                                      <Box sx={{ mt: 1 }}>
+                                        {slot.location && (
+                                          <Typography variant="body2" sx={{ mb: 0.5 }}>
+                                            Location: {slot.location}
+                                          </Typography>
+                                        )}
+                                        {slot.description && (
+                                          <Typography variant="body2" sx={{ mb: 0.5 }}>
+                                            {slot.description}
+                                          </Typography>
+                                        )}
+                                        <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                                          <Chip 
+                                            label={`${slot.attendees?.length || 0}/${slot.max_attendees} registered`}
+                                            size="small"
+                                            color={slot.attendees?.length >= slot.max_attendees ? "error" : "success"}
+                                          />
+                                          {isRegistered(slot) && (
+                                            <Chip 
+                                              label="You are registered"
+                                              size="small"
+                                              color="primary"
+                                            />
+                                          )}
+                                        </Box>
+                                      </Box>
+                                    }
+                                  />
+                                  {isRegistered(slot) ? (
+                                    <Button 
+                                      variant="outlined"
+                                      color="error" 
+                                      onClick={() => handleUnregister(slot.id)}
+                                      disabled={loading}
+                                      size="small"
+                                    >
+                                      Unregister
+                                    </Button>
+                                  ) : (
+                                    <Button 
+                                      variant="contained"
+                                      color="primary" 
+                                      onClick={() => handleRegister(slot.id)}
+                                      disabled={loading || (slot.attendees?.length >= slot.max_attendees)}
+                                      size="small"
+                                    >
+                                      Register
+                                    </Button>
+                                  )}
+                                </ListItem>
+                              ))}
+                          </List>
+                        ) : (
+                          <Typography variant="body2" color="textSecondary">
+                            No time slots available.
+                          </Typography>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
             </Grid>
           )}
         </>

@@ -1,0 +1,27 @@
+/* Calendar styles */
+.fc-event.full-slot {
+  background-color: #2196f3 !important;
+}
+
+.fc-event.available-slot {
+  background-color: #4caf50 !important;
+}
+
+.fc-event.registered-slot {
+  border-color: #ff9800 !important;
+  border-width: 2px !important;
+}
+
+/* Ensure month view has the same styling */
+.fc-daygrid-event.full-slot {
+  background-color: #2196f3 !important;
+}
+
+.fc-daygrid-event.available-slot {
+  background-color: #4caf50 !important;
+}
+
+.fc-daygrid-event.registered-slot {
+  border-color: #ff9800 !important;
+  border-width: 2px !important;
+}

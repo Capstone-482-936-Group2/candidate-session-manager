@@ -20,6 +20,7 @@ import RecruitingSeasons from './components/seasons/RecruitingSeasons';
 import CandidateSectionManagement from './components/admin/CandidateSectionManagement';
 import ProtectedRoute from './components/shared/ProtectedRoute';
 import RecruitingSeasonManagement from './components/admin/RecruitingSeasonManagement';
+import TimeSlotTemplateManagement from './components/admin/TimeSlotTemplateManagement';
 import UserDashboard from './components/dashboard/UserDashboard';
 import UserForms from './components/forms/UserForms';
 import FormSubmissionPage from './components/forms/FormSubmissionPage';

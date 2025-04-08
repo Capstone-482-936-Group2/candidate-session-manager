@@ -135,61 +135,63 @@ const SessionsList = () => {
                   Time Slots:
                 </Typography>
                 
-                {session.time_slots.map(slot => (
-                  <Paper 
-                    key={slot.id} 
-                    sx={{ 
-                      p: 2, 
-                      mb: 1, 
-                      display: 'flex', 
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      backgroundColor: slot.is_full ? '#f5f5f5' : 'white'
-                    }}
-                  >
-                    <Box>
-                      <Typography variant="body2">
-                        {format(new Date(slot.start_time), 'MMM d, yyyy h:mm a')} to {format(new Date(slot.end_time), 'h:mm a')}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                        <Chip 
-                          label={`${slot.available_slots} slots available`} 
-                          size="small" 
-                          color={slot.available_slots > 0 ? "success" : "error"}
-                        />
-                        {slot.attendees?.some(attendee => attendee.user.id === currentUser.id) && (
+                {session.time_slots
+                  .filter(slot => Boolean(slot.is_visible))
+                  .map(slot => (
+                    <Paper 
+                      key={slot.id} 
+                      sx={{ 
+                        p: 2, 
+                        mb: 1, 
+                        display: 'flex', 
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        backgroundColor: slot.is_full ? '#f5f5f5' : 'white'
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="body2">
+                          {format(new Date(slot.start_time), 'MMM d, yyyy h:mm a')} to {format(new Date(slot.end_time), 'h:mm a')}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
                           <Chip 
-                            label="You're registered" 
+                            label={`${slot.available_slots} slots available`} 
                             size="small" 
-                            color="primary"
+                            color={slot.available_slots > 0 ? "success" : "error"}
                           />
-                        )}
+                          {slot.attendees?.some(attendee => attendee.user.id === currentUser.id) && (
+                            <Chip 
+                              label="You're registered" 
+                              size="small" 
+                              color="primary"
+                            />
+                          )}
+                        </Box>
                       </Box>
-                    </Box>
-                    
-                    {(isAdmin || isFaculty) && (
-                      slot.attendees?.some(attendee => attendee.user.id === currentUser.id) ? (
-                        <Button 
-                          variant="outlined" 
-                          color="error" 
-                          size="small"
-                          onClick={() => handleUnregister(slot.id)}
-                        >
-                          Unregister
-                        </Button>
-                      ) : (
-                        <Button 
-                          variant="contained" 
-                          size="small"
-                          disabled={slot.is_full}
-                          onClick={() => handleRegister(slot.id)}
-                        >
-                          Register
-                        </Button>
-                      )
-                    )}
-                  </Paper>
-                ))}
+                      
+                      {(isAdmin || isFaculty) && (
+                        slot.attendees?.some(attendee => attendee.user.id === currentUser.id) ? (
+                          <Button 
+                            variant="outlined" 
+                            color="error" 
+                            size="small"
+                            onClick={() => handleUnregister(slot.id)}
+                          >
+                            Unregister
+                          </Button>
+                        ) : (
+                          <Button 
+                            variant="contained" 
+                            size="small"
+                            disabled={slot.is_full}
+                            onClick={() => handleRegister(slot.id)}
+                          >
+                            Register
+                          </Button>
+                        )
+                      )}
+                    </Paper>
+                  ))}
                 
                 {session.time_slots.length === 0 && (
                   <Typography variant="body2" color="textSecondary">

@@ -3,7 +3,7 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
-from .models import Session, CandidateSection, SessionTimeSlot, SessionAttendee, Form, FormSubmission
+from .models import Session, CandidateSection, SessionTimeSlot, SessionAttendee, TimeSlotTemplate, LocationType, Location, Form, FormSubmission
 from .serializers import (
     CandidateSectionSerializer, 
     SessionSerializer,
@@ -14,10 +14,16 @@ from .serializers import (
     CandidateSectionCreateSerializer,
     SessionCreateSerializer,
     SessionTimeSlotCreateSerializer,
+    TimeSlotTemplateSerializer,
+    LocationTypeSerializer,
+    LocationSerializer,
     FormSerializer,
     FormSubmissionSerializer
 )
 from rest_framework import serializers
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Create your views here.
 
@@ -63,6 +69,17 @@ class IsAdminOrFacultyOrSectionOwner(permissions.BasePermission):
             except CandidateSection.DoesNotExist:
                 return False
         return obj.candidate_section.candidate == user
+
+class IsAdminOrFaculty(permissions.BasePermission):
+    """
+    Custom permission to only allow admins or faculty members to access.
+    """
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and (
+            request.user.is_superuser or 
+            request.user.is_staff or 
+            getattr(request.user, 'user_type', '') in ['admin', 'faculty', 'superadmin']
+        )
 
 class SessionViewSet(viewsets.ModelViewSet):
     serializer_class = SessionSerializer
@@ -181,6 +198,57 @@ class SessionAttendeeViewSet(viewsets.ModelViewSet):
         attendees = SessionAttendee.objects.filter(user=request.user)
         serializer = self.get_serializer(attendees, many=True)
         return Response(serializer.data)
+
+class TimeSlotTemplateViewSet(viewsets.ModelViewSet):
+    serializer_class = TimeSlotTemplateSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrFacultyOrSectionOwner]
+    
+    def get_queryset(self):
+        # Only return templates created by the current user or that are public
+        user = self.request.user
+        if user.is_admin:
+            return TimeSlotTemplate.objects.all()
+        return TimeSlotTemplate.objects.filter(created_by=user)
+
+class LocationTypeViewSet(viewsets.ModelViewSet):
+    serializer_class = LocationTypeSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrFaculty]
+    
+    def get_queryset(self):
+        return LocationType.objects.all()
+    
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    def list(self, request, *args, **kwargs):
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception as e:
+            logger.error(f"Error in LocationTypeViewSet.list: {str(e)}")
+            raise
+
+    def create(self, request, *args, **kwargs):
+        try:
+            return super().create(request, *args, **kwargs)
+        except Exception as e:
+            logger.error(f"Error in LocationTypeViewSet.create: {str(e)}")
+            raise
+
+class LocationViewSet(viewsets.ModelViewSet):
+    serializer_class = LocationSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrFaculty]
+    
+    def get_queryset(self):
+        location_type = self.request.query_params.get('location_type', None)
+        queryset = Location.objects.all()
+        
+        if location_type:
+            queryset = queryset.filter(location_type=location_type)
+            
+        return queryset
+    
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
 
 class FormViewSet(viewsets.ModelViewSet):
     serializer_class = FormSerializer

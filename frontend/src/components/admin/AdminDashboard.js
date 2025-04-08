@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
-import {
-  Box,
-  Tabs,
-  Tab,
-  Typography,
-  Paper,
-} from '@mui/material';
+import { Container, Typography, Paper, Box, Tabs, Tab } from '@mui/material';
+import UserManagement from './UserManagement';
 import RecruitingSeasonManagement from './RecruitingSeasonManagement';
+import TimeSlotTemplateManagement from './TimeSlotTemplateManagement';
+import LocationManagement from './LocationManagement';
+import { useLocation } from 'react-router-dom';
 import UserManagement from './UserManagement';
 import FormManagement from '../../pages/FormManagement';
 
@@ -37,6 +35,8 @@ const AdminDashboard = () => {
     setTabValue(newValue);
   };
 
+  // const navigationItems = [ ... ];
+
   return (
     <Box sx={{ width: '100%' }}>
       <Paper sx={{ width: '100%', mb: 2 }}>
@@ -45,22 +45,22 @@ const AdminDashboard = () => {
           onChange={handleTabChange}
           aria-label="admin dashboard tabs"
         >
-          <Tab label="Recruiting Seasons" />
           <Tab label="User Management" />
+          <Tab label="Season Management" />
+          <Tab label="Time Slot Templates" />
+          <Tab label="Locations" />
           <Tab label="Form Management" />
         </Tabs>
       </Paper>
-
-      <TabPanel value={tabValue} index={0}>
-        <RecruitingSeasonManagement />
-      </TabPanel>
-      <TabPanel value={tabValue} index={1}>
-        <UserManagement />
-      </TabPanel>
-      <TabPanel value={tabValue} index={2}>
-        <FormManagement />
-      </TabPanel>
-    </Box>
+      
+      <Box sx={{ py: 2 }}>
+        {tabValue === 0 && <UserManagement />}
+        {tabValue === 1 && <RecruitingSeasonManagement />}
+        {tabValue === 2 && <TimeSlotTemplateManagement />}
+        {tabValue === 3 && <LocationManagement />}
+        {tabValue === 4 && <FormManagement />}
+      </Box>
+    </Container>
   );
 };
 
