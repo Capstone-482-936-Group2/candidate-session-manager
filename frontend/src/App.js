@@ -20,10 +20,17 @@ import RecruitingSeasons from './components/seasons/RecruitingSeasons';
 import CandidateSectionManagement from './components/admin/CandidateSectionManagement';
 import ProtectedRoute from './components/shared/ProtectedRoute';
 import RecruitingSeasonManagement from './components/admin/RecruitingSeasonManagement';
+import UserDashboard from './components/dashboard/UserDashboard';
+import UserForms from './components/forms/UserForms';
+import FormSubmissionPage from './components/forms/FormSubmissionPage';
+import PrivateRoute from './components/auth/PrivateRoute';
+import AdminRoute from './components/auth/AdminRoute';
+import FormManagement from './pages/FormManagement';
 
 // Create theme
 const theme = createTheme({
   palette: {
+    mode: 'light',
     primary: {
       main: '#1976d2',
     },
@@ -64,7 +71,44 @@ function App() {
                   <Route path="/admin-dashboard" element={<AdminDashboard />} />
                   <Route path="/admin-dashboard/season/:seasonId/candidates" element={<CandidateSectionManagement />} />
                   <Route path="/admin-dashboard/season/:seasonId/management" element={<RecruitingSeasonManagement />} />
+                  <Route path="/admin-dashboard/form-management" element={<FormManagement />} />
                 </Route>
+                
+                <Route
+                  path="/admin"
+                  element={
+                    <AdminRoute>
+                      <AdminDashboard />
+                    </AdminRoute>
+                  }
+                />
+                
+                <Route
+                  path="/dashboard"
+                  element={
+                    <PrivateRoute>
+                      <UserDashboard />
+                    </PrivateRoute>
+                  }
+                />
+                
+                <Route
+                  path="/forms"
+                  element={
+                    <PrivateRoute>
+                      <UserForms />
+                    </PrivateRoute>
+                  }
+                />
+
+                <Route
+                  path="/forms/:formId"
+                  element={
+                    <PrivateRoute>
+                      <FormSubmissionPage />
+                    </PrivateRoute>
+                  }
+                />
                 
                 {/* Redirect root to dashboard or login */}
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />

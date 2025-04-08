@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Typography, Container, Box, Paper, Alert } from '@mui/material';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Typography, Container, Box, Paper, Alert, Button } from '@mui/material';
 import { useAuth } from '../../context/AuthContext';
 import { GoogleLogin } from '@react-oauth/google';
 
@@ -8,6 +8,8 @@ const Login = () => {
   const [error, setError] = useState('');
   const { loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const formId = searchParams.get('formId');
 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
@@ -17,10 +19,22 @@ const Login = () => {
       }
       
       await loginWithGoogle(credentialResponse.credential);
-      navigate('/dashboard');
+      
+      // If there's a formId in the URL, redirect to that form
+      if (formId) {
+        navigate(`/forms/${formId}`);
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.response?.data?.error || 'Failed to login with Google');
+      const errorMessage = err.response?.data?.error || 'Failed to login with Google';
+      setError(errorMessage);
+      
+      // If the error is about unauthorized access, show a more specific message
+      if (err.response?.status === 403) {
+        setError('This email is not associated with an approved user. Please contact an administrator to request access.');
+      }
     }
   };
 
@@ -36,13 +50,26 @@ const Login = () => {
           Sign In with Google
         </Typography>
         
-        {error && <Alert severity="error" sx={{ mt: 2, mb: 2 }}>{error}</Alert>}
+        {error && (
+          <Alert 
+            severity={error.includes('not associated with an approved user') ? 'warning' : 'error'} 
+            sx={{ mt: 2, mb: 2 }}
+            action={
+              error.includes('not associated with an approved user') && (
+                <Button color="inherit" size="small" onClick={() => navigate('/register')}>
+                  Register
+                </Button>
+              )
+            }
+          >
+            {error}
+          </Alert>
+        )}
         
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+        <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
             onError={handleGoogleError}
-            useOneTap
           />
         </Box>
       </Paper>

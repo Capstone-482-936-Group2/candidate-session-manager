@@ -3,8 +3,9 @@ import {
   Paper, Typography, Table, TableBody, TableCell, TableContainer, 
   TableHead, TableRow, Button, Dialog, DialogActions, DialogContent, 
   DialogTitle, FormControl, InputLabel, Select, MenuItem, TextField,
-  Snackbar, Alert, Box
+  Snackbar, Alert, Box, IconButton
 } from '@mui/material';
+import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import { usersAPI } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -18,6 +19,12 @@ const UserManagement = () => {
   const [newRole, setNewRole] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const { currentUser, isSuperAdmin } = useAuth();
+  const [formData, setFormData] = useState({
+    email: '',
+    user_type: 'candidate',
+    first_name: '',
+    last_name: '',
+  });
 
   useEffect(() => {
     fetchUsers();
@@ -36,15 +43,38 @@ const UserManagement = () => {
     }
   };
 
-  const handleOpenDialog = (user) => {
-    setSelectedUser(user);
-    setNewRole(user.user_type);
+  const handleOpenDialog = (user = null) => {
+    if (user) {
+      setSelectedUser(user);
+      setNewRole(user.user_type);
+      setFormData({
+        email: user.email,
+        user_type: user.user_type,
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
+      });
+    } else {
+      setSelectedUser(null);
+      setNewRole('candidate');
+      setFormData({
+        email: '',
+        user_type: 'candidate',
+        first_name: '',
+        last_name: '',
+      });
+    }
     setDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setSelectedUser(null);
+    setFormData({
+      email: '',
+      user_type: 'candidate',
+      first_name: '',
+      last_name: '',
+    });
   };
 
   const handleRoleChange = (e) => {
@@ -117,60 +147,98 @@ const UserManagement = () => {
     }
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSnackbar({ ...snackbar, open: false });
+
+    try {
+      if (selectedUser) {
+        await usersAPI.updateUser(selectedUser.id, formData);
+        setSnackbar({
+          open: true,
+          message: 'User updated successfully',
+          severity: 'success'
+        });
+      } else {
+        // When creating a new user, include only necessary fields
+        const userData = {
+          ...formData,
+          username: formData.email, // Use email as username
+          user_type: formData.user_type || 'candidate' // Ensure user_type is set
+        };
+        await usersAPI.addUser(userData);
+        setSnackbar({
+          open: true,
+          message: 'User added successfully',
+          severity: 'success'
+        });
+      }
+      handleCloseDialog();
+      fetchUsers();
+    } catch (err) {
+      console.error('Error saving user:', err);
+      const errorMessage = err.response?.data?.error || 
+                          (err.response?.data && Object.values(err.response.data).join(', ')) || 
+                          'Failed to save user';
+      setError(errorMessage);
+      setSnackbar({
+        open: true,
+        message: errorMessage,
+        severity: 'error'
+      });
+    }
+  };
+
   if (loading) return <Typography>Loading users...</Typography>;
   if (error) return <Typography color="error">{error}</Typography>;
 
   return (
-    <div>
-      <Typography variant="h5" gutterBottom>
-        User Management
-      </Typography>
-      
+    <Box sx={{ p: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+        <Typography variant="h5" component="h2">
+          User Management
+        </Typography>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={() => handleOpenDialog()}
+        >
+          Add New User
+        </Button>
+      </Box>
+
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell>Username</TableCell>
               <TableCell>Email</TableCell>
               <TableCell>Name</TableCell>
               <TableCell>Role</TableCell>
-              <TableCell align="right">Actions</TableCell>
+              <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {users.map(user => (
+            {users.map((user) => (
               <TableRow key={user.id}>
-                <TableCell>{user.username}</TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>
                   {user.first_name} {user.last_name}
                 </TableCell>
                 <TableCell>{user.user_type}</TableCell>
-                <TableCell align="right">
-                  <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                    <Button 
-                      variant="outlined" 
-                      size="small"
-                      onClick={() => handleOpenDialog(user)}
-                      disabled={
-                        (user.user_type === 'superadmin' && !isSuperAdmin) || 
-                        (!isSuperAdmin && user.id === currentUser.id)
-                      }
-                    >
-                      Edit Role
-                    </Button>
-                    {isSuperAdmin && user.id !== currentUser.id && (
-                      <Button 
-                        variant="outlined" 
-                        color="error"
-                        size="small"
-                        onClick={() => handleDeleteClick(user)}
-                        disabled={user.user_type === 'superadmin'}
-                      >
-                        Delete
-                      </Button>
-                    )}
-                  </Box>
+                <TableCell>
+                  <IconButton
+                    color="primary"
+                    onClick={() => handleOpenDialog(user)}
+                  >
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton
+                    color="error"
+                    onClick={() => handleDeleteClick(user)}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
                 </TableCell>
               </TableRow>
             ))}
@@ -178,32 +246,62 @@ const UserManagement = () => {
         </Table>
       </TableContainer>
 
-      {/* Role Update Dialog */}
       <Dialog open={dialogOpen} onClose={handleCloseDialog}>
-        <DialogTitle>Update User Role</DialogTitle>
+        <DialogTitle>
+          {selectedUser ? 'Edit User' : 'Add New User'}
+        </DialogTitle>
         <DialogContent>
-          <Typography paragraph>
-            Updating role for: {selectedUser?.username}
-          </Typography>
-          <FormControl fullWidth sx={{ mt: 2 }}>
-            <InputLabel id="role-select-label">Role</InputLabel>
-            <Select
-              labelId="role-select-label"
-              value={newRole}
-              label="Role"
-              onChange={handleRoleChange}
-            >
-              <MenuItem value="candidate">Candidate</MenuItem>
-              <MenuItem value="faculty">Faculty</MenuItem>
-              <MenuItem value="admin">Admin</MenuItem>
-              {isSuperAdmin && <MenuItem value="superadmin">Super Admin</MenuItem>}
-            </Select>
-          </FormControl>
+          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              label="Email"
+              value={formData.email}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
+              margin="normal"
+              required
+              disabled={!!selectedUser}
+            />
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Role</InputLabel>
+              <Select
+                value={formData.user_type}
+                onChange={(e) =>
+                  setFormData({ ...formData, user_type: e.target.value })
+                }
+                label="Role"
+              >
+                <MenuItem value="candidate">Candidate</MenuItem>
+                <MenuItem value="faculty">Faculty</MenuItem>
+                <MenuItem value="admin">Admin</MenuItem>
+                {isSuperAdmin && <MenuItem value="superadmin">Super Admin</MenuItem>}
+              </Select>
+            </FormControl>
+            <TextField
+              fullWidth
+              label="First Name"
+              value={formData.first_name}
+              onChange={(e) =>
+                setFormData({ ...formData, first_name: e.target.value })
+              }
+              margin="normal"
+            />
+            <TextField
+              fullWidth
+              label="Last Name"
+              value={formData.last_name}
+              onChange={(e) =>
+                setFormData({ ...formData, last_name: e.target.value })
+              }
+              margin="normal"
+            />
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button onClick={handleUpdateRole} variant="contained">
-            Update
+          <Button onClick={handleSubmit} variant="contained" color="primary">
+            {selectedUser ? 'Update' : 'Add'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -242,7 +340,7 @@ const UserManagement = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </div>
+    </Box>
   );
 };
 

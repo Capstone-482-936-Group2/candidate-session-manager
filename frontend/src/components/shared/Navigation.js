@@ -41,6 +41,10 @@ const Navigation = () => {
                 Sessions
               </Button>
               
+              <Button color="inherit" component={Link} to="/forms">
+                Forms
+              </Button>
+              
               {isFaculty && (
                 <Button color="inherit" component={Link} to="/faculty-dashboard">
                   Faculty Dashboard

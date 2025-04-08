@@ -1,18 +1,20 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.utils.translation import gettext_lazy as _
 from .models import User
 
 class CustomUserAdmin(UserAdmin):
-    list_display = ('email', 'username', 'first_name', 'last_name', 'user_type', 'is_active')
-    list_filter = ('user_type', 'is_active')
+    list_display = ('email', 'username', 'first_name', 'last_name', 'user_type', 'is_active', 'date_joined')
+    list_filter = ('user_type', 'is_active', 'date_joined')
     search_fields = ('email', 'username', 'first_name', 'last_name')
-    ordering = ('email',)
+    ordering = ('-date_joined',)
     
     fieldsets = (
         (None, {'fields': ('email', 'username', 'password')}),
-        ('Personal info', {'fields': ('first_name', 'last_name')}),
-        ('Permissions', {'fields': ('user_type', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
-        ('Important dates', {'fields': ('last_login', 'date_joined')}),
+        (_('Personal info'), {'fields': ('first_name', 'last_name')}),
+        (_('Role'), {'fields': ('user_type',)}),
+        (_('Permissions'), {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        (_('Important dates'), {'fields': ('last_login', 'date_joined')}),
     )
     
     add_fieldsets = (
@@ -36,5 +38,11 @@ class CustomUserAdmin(UserAdmin):
         if not request.user.is_superuser:
             return ('is_superuser', 'user_permissions') 
         return self.readonly_fields
+
+    def save_model(self, request, obj, form, change):
+        # If creating a new user, set username to email if not provided
+        if not change and not obj.username:
+            obj.username = obj.email
+        super().save_model(request, obj, form, change)
 
 admin.site.register(User, CustomUserAdmin)

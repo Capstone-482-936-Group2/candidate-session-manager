@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.views import APIView
 from django.contrib.auth import login, logout, authenticate
 from allauth.socialaccount.providers.google.views import GoogleOAuth2Adapter
@@ -14,6 +14,10 @@ from django.contrib.auth import get_backends
 from .models import User
 from .serializers import UserSerializer, RegisterSerializer, UserUpdateSerializer
 import json
+from django.core.mail import send_mail
+from django.shortcuts import get_object_or_404
+from candidate_sessions.models import Form
+from rest_framework.permissions import IsAuthenticated
 
 # Create your views here.
 
@@ -34,6 +38,8 @@ class UserViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated()]
         elif self.action == 'update_role':
             # Custom permission for update_role that checks is_superadmin in the action itself
+            return [permissions.IsAuthenticated()]
+        elif self.action == 'send_form_link':
             return [permissions.IsAuthenticated()]
         # For other actions like update/delete
         return [permissions.IsAuthenticated()]
@@ -94,19 +100,16 @@ class UserViewSet(viewsets.ModelViewSet):
             first_name = idinfo.get('given_name', '')
             last_name = idinfo.get('family_name', '')
 
-            # Try to find existing user
+            # Check if user exists
             try:
                 user = User.objects.get(email=email)
                 print(f"Found existing user: {user.email}")
             except User.DoesNotExist:
-                # Create new user
-                user = User.objects.create(
-                    email=email,
-                    username=email,
-                    first_name=first_name,
-                    last_name=last_name
+                # User does not exist, return 403 Forbidden
+                return Response(
+                    {'error': 'This email is not associated with an approved user'},
+                    status=status.HTTP_403_FORBIDDEN
                 )
-                print(f"Created new user: {user.email}")
 
             # Create or update social account
             social_account, created = SocialAccount.objects.update_or_create(
@@ -156,14 +159,37 @@ class UserViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['post'])
     def register(self, request):
+        print("Create method called with data:", request.data)
+        print("User making request:", request.user)
+        print("Is user admin?", request.user.is_admin)
+        
+        # Only allow admins to create users
+        if not request.user.is_admin:
+            print("User is not admin, returning 403")
+            return Response(
+                {'error': 'Only administrators can create users'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.save()
-            return Response(
-                self.get_serializer(user).data,
-                status=status.HTTP_201_CREATED
-            )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            print("Serializer is valid, attempting to save")
+            try:
+                user = serializer.save()
+                print("User created successfully:", user.email)
+                return Response(
+                    self.get_serializer(user).data,
+                    status=status.HTTP_201_CREATED
+                )
+            except Exception as e:
+                print("Error saving user:", str(e))
+                return Response(
+                    {'error': f'Error creating user: {str(e)}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            print("Serializer validation failed:", serializer.errors)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=True, methods=['patch'])
     def update_role(self, request, pk=None):
@@ -240,3 +266,88 @@ class UserViewSet(viewsets.ModelViewSet):
             )
             
         return super().destroy(request, *args, **kwargs)
+
+    @action(detail=False, methods=['post'])
+    def send_form_link(self, request):
+        if not request.user.is_admin:
+            return Response({'error': 'Only administrators can send form links'}, status=403)
+        
+        try:
+            candidate_email = request.data.get('candidate_email')
+            form_id = request.data.get('form_id')
+            message = request.data.get('message', '')
+            
+            if not candidate_email or not form_id:
+                return Response({'error': 'Candidate email and form ID are required'}, status=400)
+            
+            # Get the form
+            form = get_object_or_404(Form, id=form_id)
+            
+            # Create the form link with form ID as query parameter
+            form_link = f"{settings.FRONTEND_URL}/login?formId={form_id}"
+            
+            # Prepare email content
+            subject = f'Form Link: {form.title}'
+            email_message = f"""
+            {message}
+
+            Please click the link below to access the form:
+            {form_link}
+            """
+            
+            # Send email
+            send_mail(
+                subject=subject,
+                message=email_message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[candidate_email],
+                fail_silently=False,
+            )
+            
+            return Response({'message': 'Form link sent successfully'})
+            
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def send_form_link(request):
+    if not request.user.is_admin:
+        return Response({'error': 'Only administrators can send form links'}, status=403)
+    
+    try:
+        candidate_email = request.data.get('candidate_email')
+        form_id = request.data.get('form_id')
+        message = request.data.get('message', '')
+        
+        if not candidate_email or not form_id:
+            return Response({'error': 'Candidate email and form ID are required'}, status=400)
+        
+        # Get the form
+        form = get_object_or_404(Form, id=form_id)
+        
+        # Create the form link with form ID as query parameter
+        form_link = f"{settings.FRONTEND_URL}/login?formId={form_id}"
+        
+        # Prepare email content
+        subject = f'Form Link: {form.title}'
+        email_message = f"""
+        {message}
+
+        Please click the link below to access the form:
+        {form_link}
+        """
+        
+        # Send email
+        send_mail(
+            subject=subject,
+            message=email_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[candidate_email],
+            fail_silently=False,
+        )
+        
+        return Response({'message': 'Form link sent successfully'})
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)

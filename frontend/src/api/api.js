@@ -34,13 +34,19 @@ export const authAPI = {
   getCurrentUser: () => api.get('/users/me/'),
 };
 
-// Users API
+// User Management API
 export const usersAPI = {
   getUsers: () => api.get('/users/'),
-  getUserById: (id) => api.get(`/users/${id}/`),
+  getUser: (id) => api.get(`/users/${id}/`),
+  addUser: (userData) => api.post('/users/', userData),
   updateUser: (id, userData) => api.patch(`/users/${id}/`, userData),
-  updateUserRole: (id, role) => api.patch(`/users/${id}/update_role/`, { user_type: role }),
   deleteUser: (id) => api.delete(`/users/${id}/`),
+  updateUserRole: (id, role) => api.patch(`/users/${id}/update_role/`, { user_type: role }),
+  sendFormLink: (formId, candidateEmail, message) => api.post('/users/send_form_link/', { 
+    form_id: formId, 
+    candidate_email: candidateEmail, 
+    message: message 
+  }),
 };
 
 // Recruiting Seasons API (formerly Sessions API)

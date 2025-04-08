@@ -28,31 +28,19 @@ class UserSerializer(serializers.ModelSerializer):
         return data
 
 class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
-    password2 = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
-    
     class Meta:
         model = User
-        fields = ['email', 'username', 'password', 'password2', 'first_name', 'last_name']
-    
-    def validate(self, data):
-        if data['password'] != data['password2']:
-            raise serializers.ValidationError({"password": "Password fields didn't match."})
-        return data
+        fields = ['email', 'username', 'first_name', 'last_name', 'user_type']
     
     def create(self, validated_data):
-        # Remove password2 as it's not needed for user creation
-        validated_data.pop('password2')
-        
-        # Get the password and remove it from validated_data
-        password = validated_data.pop('password')
-        
-        # Create the user without the password
+        # Create the user without a password
         user = User.objects.create_user(
-            **validated_data, 
-            password=password  # Pass password separately
+            username=validated_data['email'],  # Use email as username
+            email=validated_data['email'],
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', ''),
+            user_type=validated_data.get('user_type', 'candidate')
         )
-        
         return user
 
 class UserUpdateSerializer(serializers.ModelSerializer):

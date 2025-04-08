@@ -17,12 +17,14 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from users.views import UserViewSet
+from users.views import UserViewSet, send_form_link
 from candidate_sessions.views import (
     SessionViewSet, 
     CandidateSectionViewSet, 
     SessionTimeSlotViewSet, 
-    SessionAttendeeViewSet
+    SessionAttendeeViewSet,
+    FormViewSet,
+    FormSubmissionViewSet
 )
 
 router = DefaultRouter()
@@ -31,11 +33,14 @@ router.register(r'seasons', SessionViewSet, basename='season')
 router.register(r'candidate-sections', CandidateSectionViewSet, basename='candidate-section')
 router.register(r'timeslots', SessionTimeSlotViewSet, basename='timeslot')
 router.register(r'attendees', SessionAttendeeViewSet, basename='attendee')
+router.register(r'forms', FormViewSet, basename='form')
+router.register(r'form-submissions', FormSubmissionViewSet, basename='form-submission')
 
 # API URLs
 api_urlpatterns = [
     path('', include(router.urls)),
     path('users/', include('users.urls')),  # User authentication URLs
+    path('users/send-form-link/', send_form_link, name='send-form-link'),  # Add the send-form-link endpoint directly
 ]
 
 urlpatterns = [

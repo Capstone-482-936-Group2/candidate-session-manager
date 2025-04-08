@@ -1,6 +1,7 @@
 from django.db import models
 from users.models import User
 from django.conf import settings
+from django.core.exceptions import ValidationError
 
 class Session(models.Model):
     """
@@ -68,3 +69,73 @@ class SessionAttendee(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.time_slot}"
+
+class Form(models.Model):
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_forms')
+    created_at = models.DateTimeField(auto_now_add=True)
+    assigned_to = models.ManyToManyField(User, related_name='assigned_forms', blank=True)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.title
+
+class FormSubmission(models.Model):
+    form = models.ForeignKey(Form, on_delete=models.CASCADE, related_name='submissions')
+    submitted_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='form_submissions')
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    answers = models.JSONField()  # Stores the user's answers
+    is_completed = models.BooleanField(default=False)
+
+    def clean(self):
+        # Only enforce uniqueness for completed submissions
+        if self.is_completed:
+            existing = FormSubmission.objects.filter(
+                form=self.form,
+                submitted_by=self.submitted_by,
+                is_completed=True
+            ).exclude(pk=self.pk)
+            if existing.exists():
+                raise ValidationError("You have already submitted this form")
+
+    def __str__(self):
+        return f"{self.submitted_by.email} - {self.form.title}"
+
+class FormField(models.Model):
+    FIELD_TYPES = [
+        ('text', 'Text'),
+        ('textarea', 'Text Area'),
+        ('select', 'Select'),
+        ('radio', 'Radio'),
+        ('checkbox', 'Checkbox'),
+        ('date', 'Date'),
+        ('date_range', 'Date Range'),
+    ]
+
+    form = models.ForeignKey(Form, on_delete=models.CASCADE, related_name='form_fields')
+    type = models.CharField(max_length=20, choices=FIELD_TYPES)
+    label = models.CharField(max_length=200)
+    required = models.BooleanField(default=False)
+    help_text = models.TextField(blank=True)
+    order = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', 'created_at']
+
+    def __str__(self):
+        return f"{self.label} ({self.type})"
+
+class FormFieldOption(models.Model):
+    field = models.ForeignKey(FormField, on_delete=models.CASCADE, related_name='options')
+    label = models.CharField(max_length=200)
+    order = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['order', 'created_at']
+
+    def __str__(self):
+        return f"{self.field.label} - {self.label}"

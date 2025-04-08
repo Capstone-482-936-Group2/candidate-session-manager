@@ -1,36 +1,66 @@
 import React, { useState } from 'react';
-import { Container, Typography, Paper, Box, Tabs, Tab } from '@mui/material';
-import UserManagement from './UserManagement';
+import {
+  Box,
+  Tabs,
+  Tab,
+  Typography,
+  Paper,
+} from '@mui/material';
 import RecruitingSeasonManagement from './RecruitingSeasonManagement';
-import { useLocation } from 'react-router-dom';
+import UserManagement from './UserManagement';
+import FormManagement from '../../pages/FormManagement';
+
+function TabPanel(props) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`admin-tabpanel-${index}`}
+      aria-labelledby={`admin-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ p: 3 }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+}
 
 const AdminDashboard = () => {
-  const location = useLocation();
-  const defaultTab = location.state?.defaultTab ?? 0;
-  const [tabValue, setTabValue] = useState(defaultTab);
+  const [tabValue, setTabValue] = useState(0);
 
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4 }}>
-      <Typography variant="h4" gutterBottom>
-        Admin Dashboard
-      </Typography>
-      
-      <Paper sx={{ mb: 3 }}>
-        <Tabs value={tabValue} onChange={handleTabChange} centered>
+    <Box sx={{ width: '100%' }}>
+      <Paper sx={{ width: '100%', mb: 2 }}>
+        <Tabs
+          value={tabValue}
+          onChange={handleTabChange}
+          aria-label="admin dashboard tabs"
+        >
+          <Tab label="Recruiting Seasons" />
           <Tab label="User Management" />
-          <Tab label="Season Management" />
+          <Tab label="Form Management" />
         </Tabs>
       </Paper>
-      
-      <Box sx={{ py: 2 }}>
-        {tabValue === 0 && <UserManagement />}
-        {tabValue === 1 && <RecruitingSeasonManagement />}
-      </Box>
-    </Container>
+
+      <TabPanel value={tabValue} index={0}>
+        <RecruitingSeasonManagement />
+      </TabPanel>
+      <TabPanel value={tabValue} index={1}>
+        <UserManagement />
+      </TabPanel>
+      <TabPanel value={tabValue} index={2}>
+        <FormManagement />
+      </TabPanel>
+    </Box>
   );
 };
 

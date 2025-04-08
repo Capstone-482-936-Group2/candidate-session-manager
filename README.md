@@ -95,12 +95,38 @@ This application allows candidates to register for sessions and administrators t
 2. Make sure the React frontend is running (on http://localhost:3000)
 3. Access the application at http://localhost:3000
 
-## User Roles
+## User Management
 
+### Adding New Users
+1. Log in to the Django admin interface at `http://localhost:8000/admin`
+2. Click on "Users" in the admin dashboard
+3. Click "Add User" in the top right
+4. Fill in the required information:
+   - Email (required)
+   - Username (will be set to email if not provided)
+   - Password (required)
+   - User Type (select appropriate role)
+   - First Name and Last Name (optional)
+   - Is Active (checked by default)
+   - Is Staff (checked for admin users)
+5. Click "Save" to create the user
+
+### Managing Existing Users
+1. In the Users list, you can:
+   - View all users and their details
+   - Filter users by role, active status, and join date
+   - Search users by email, username, or name
+   - Edit user details by clicking on a user
+   - Deactivate users by unchecking "Is Active"
+   - Change user roles as needed
+
+### User Roles and Permissions
 - **Candidate**: Can register for sessions and view their registrations
 - **Faculty**: Can view all sessions
 - **Admin**: Can manage sessions and users (except superadmins)
 - **Superadmin**: Can manage all aspects of the system
+
+Note: Only users added through the admin interface can access the system. Users attempting to sign in with Google without being pre-registered will receive an error message.
 
 ## Development Workflow
 
