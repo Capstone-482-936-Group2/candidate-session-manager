@@ -24,6 +24,7 @@ const UserManagement = () => {
     user_type: 'candidate',
     first_name: '',
     last_name: '',
+    room_number: '',
   });
 
   useEffect(() => {
@@ -52,6 +53,7 @@ const UserManagement = () => {
         user_type: user.user_type,
         first_name: user.first_name || '',
         last_name: user.last_name || '',
+        room_number: user.room_number || '',
       });
     } else {
       setSelectedUser(null);
@@ -61,6 +63,7 @@ const UserManagement = () => {
         user_type: 'candidate',
         first_name: '',
         last_name: '',
+        room_number: '',
       });
     }
     setDialogOpen(true);
@@ -74,6 +77,7 @@ const UserManagement = () => {
       user_type: 'candidate',
       first_name: '',
       last_name: '',
+      room_number: '',
     });
   };
 
@@ -215,6 +219,7 @@ const UserManagement = () => {
               <TableCell>Email</TableCell>
               <TableCell>Name</TableCell>
               <TableCell>Role</TableCell>
+              <TableCell>Room Number</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -226,6 +231,12 @@ const UserManagement = () => {
                   {user.first_name} {user.last_name}
                 </TableCell>
                 <TableCell>{user.user_type}</TableCell>
+                <TableCell>
+                  {(user.user_type === 'faculty' || user.user_type === 'admin' || user.user_type === 'superadmin') ? 
+                    (user.room_number || '-') : 
+                    'N/A'
+                  }
+                </TableCell>
                 <TableCell>
                   <IconButton
                     color="primary"
@@ -296,6 +307,18 @@ const UserManagement = () => {
               }
               margin="normal"
             />
+            {(formData.user_type === 'faculty' || formData.user_type === 'admin' || formData.user_type === 'superadmin') && (
+              <TextField
+                fullWidth
+                label="Room Number / Office Location"
+                value={formData.room_number || ''}
+                onChange={(e) =>
+                  setFormData({ ...formData, room_number: e.target.value })
+                }
+                margin="normal"
+                placeholder="e.g., HRBB 429"
+              />
+            )}
           </Box>
         </DialogContent>
         <DialogActions>

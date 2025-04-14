@@ -27,6 +27,7 @@ import FormSubmissionPage from './components/forms/FormSubmissionPage';
 import PrivateRoute from './components/auth/PrivateRoute';
 import AdminRoute from './components/auth/AdminRoute';
 import FormManagement from './pages/FormManagement';
+import FacultyAvailabilityForm from './components/faculty/FacultyAvailabilityForm';
 
 // Create theme
 const theme = createTheme({
@@ -109,6 +110,15 @@ function App() {
                       <FormSubmissionPage />
                     </PrivateRoute>
                   }
+                />
+                
+                <Route 
+                  path="/faculty-availability" 
+                  element={
+                    <PrivateRoute allowedRoles={['faculty', 'admin', 'superadmin']}>
+                      <FacultyAvailabilityForm />
+                    </PrivateRoute>
+                  } 
                 />
                 
                 {/* Redirect root to dashboard or login */}

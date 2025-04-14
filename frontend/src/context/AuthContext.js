@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { authAPI } from '../api/api';
+import { authAPI, usersAPI } from '../api/api';
+import RoomSetupDialog from '../components/auth/RoomSetupDialog';
 
 const AuthContext = createContext();
 
@@ -9,6 +10,7 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showRoomSetup, setShowRoomSetup] = useState(false);
 
   // Function to store auth state in localStorage
   const storeAuthState = (user) => {
@@ -45,6 +47,14 @@ export const AuthProvider = ({ children }) => {
         // Then verify with the server
         const response = await authAPI.getCurrentUser();
         const user = response.data;
+        
+        // Only show setup dialog if needed and not already completed
+        if (user.user_type !== 'candidate' && !user.has_completed_setup) {
+          setShowRoomSetup(true);
+        } else {
+          setShowRoomSetup(false);
+        }
+        
         setCurrentUser(user);
         storeAuthState(user);
       } catch (err) {
@@ -75,6 +85,14 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authAPI.googleLogin(accessToken);
       const user = response.data;
+      
+      // Check if room setup is needed only for faculty/admin/superadmin who haven't completed setup
+      if (user.user_type !== 'candidate' && !user.has_completed_setup) {
+        setShowRoomSetup(true);
+      } else {
+        setShowRoomSetup(false);  // Ensure dialog is closed for other cases
+      }
+      
       setCurrentUser(user);
       storeAuthState(user);
       return user;
@@ -106,6 +124,18 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const handleRoomSetupComplete = async (roomNumber) => {
+    try {
+      const response = await usersAPI.completeRoomSetup(roomNumber);
+      const updatedUser = response.data;
+      setCurrentUser(updatedUser);
+      storeAuthState(updatedUser);  // Make sure to update localStorage
+      setShowRoomSetup(false);
+    } catch (err) {
+      console.error('Error completing room setup:', err);
+    }
+  };
+
   const value = {
     currentUser,
     loginWithGoogle,
@@ -119,5 +149,14 @@ export const AuthProvider = ({ children }) => {
     isSuperAdmin: currentUser?.user_type === 'superadmin',
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      <RoomSetupDialog
+        open={showRoomSetup}
+        currentRoomNumber={currentUser?.room_number}
+        onComplete={handleRoomSetupComplete}
+      />
+    </AuthContext.Provider>
+  );
 };

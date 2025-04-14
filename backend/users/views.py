@@ -309,6 +309,21 @@ class UserViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'error': str(e)}, status=500)
 
+    @action(detail=False, methods=['post'])
+    def complete_room_setup(self, request):
+        user = request.user
+        room_number = request.data.get('room_number')
+        
+        if not room_number:
+            return Response({'error': 'Room number is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user.room_number = room_number
+        user.has_completed_setup = True
+        user.save()
+        
+        serializer = self.get_serializer(user)
+        return Response(serializer.data)
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def send_form_link(request):
@@ -351,3 +366,18 @@ def send_form_link(request):
         
     except Exception as e:
         return Response({'error': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def complete_room_setup(request):
+    user = request.user
+    room_number = request.data.get('room_number')
+    
+    if not room_number:
+        return Response({'error': 'Room number is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    user.room_number = room_number
+    user.has_completed_setup = True
+    user.save()
+    
+    return Response({'message': 'Room setup completed successfully'})

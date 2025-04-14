@@ -9,11 +9,13 @@ import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { Add as AddIcon, Delete as DeleteIcon, ArrowBack as ArrowBackIcon, Edit as EditIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, ArrowBack as ArrowBackIcon, Edit as EditIcon, ImportExport as ImportIcon } from '@mui/icons-material';
 import { format, parseISO } from 'date-fns';
 import { useParams, Link } from 'react-router-dom';
-import { usersAPI, seasonsAPI, candidateSectionsAPI, timeSlotsAPI, timeSlotTemplatesAPI } from '../../api/api';
+import { usersAPI, seasonsAPI, candidateSectionsAPI, timeSlotsAPI, timeSlotTemplatesAPI, facultyAvailabilityAPI } from '../../api/api';
 import TemplateSelectionDialog from './TemplateSelectionDialog';
+import FacultyAvailabilitySubmissions from './FacultyAvailabilitySubmissions';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 
 const CandidateSectionManagement = () => {
   const { seasonId } = useParams();
@@ -78,6 +80,10 @@ const CandidateSectionManagement = () => {
 
   // Update the state to include selectedCandidateSection
   const [selectedCandidateSection, setSelectedCandidateSection] = useState(null);
+
+  // Add these state variables with your other state declarations
+  const [facultyAvailability, setFacultyAvailability] = useState([]);
+  const [availabilityDialogOpen, setAvailabilityDialogOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -788,6 +794,66 @@ const CandidateSectionManagement = () => {
     fetchTemplates();
   }, []);
 
+  // Add this function to fetch faculty availability for a candidate section
+  const fetchFacultyAvailability = async (sectionId) => {
+    try {
+      setLoading(true);
+      const response = await facultyAvailabilityAPI.getAvailabilityByCandidate(sectionId);
+      console.log("Faculty availability data:", response.data);
+      setFacultyAvailability(response.data);
+    } catch (err) {
+      console.error('Error fetching faculty availability:', err);
+      setSnackbar({
+        open: true,
+        message: 'Failed to load faculty availability',
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Add a function to handle opening the import availability dialog
+  const handleOpenAvailabilityDialog = async (section) => {
+    setSelectedSection(section);
+    setSelectedCandidateSection(section);
+    await fetchFacultyAvailability(section.id);
+    setAvailabilityDialogOpen(true);
+  };
+
+  // Add a function to close the dialog
+  const handleCloseAvailabilityDialog = () => {
+    setAvailabilityDialogOpen(false);
+  };
+
+  // Add a function to import faculty availability as time slots
+  const handleImportAvailability = async (availabilityId) => {
+    try {
+      setLoading(true);
+      const response = await facultyAvailabilityAPI.importAvailability(availabilityId);
+      
+      setSnackbar({
+        open: true,
+        message: response.data.message,
+        severity: 'success'
+      });
+      
+      // Refresh time slots after import
+      await fetchCandidateSections();
+      handleCloseAvailabilityDialog();
+      
+    } catch (err) {
+      console.error('Error importing faculty availability:', err);
+      setSnackbar({
+        open: true,
+        message: 'Failed to import faculty availability: ' + (err.response?.data?.detail || err.message),
+        severity: 'error'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading) return (
     <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
       <CircularProgress />
@@ -1003,6 +1069,14 @@ const CandidateSectionManagement = () => {
                       onClick={() => handleOpenTimeSlotDialog(section)}
                     >
                       Add Time Slots
+                    </Button>
+                    <Button 
+                      size="small"
+                      color="primary"
+                      startIcon={<ImportIcon />}
+                      onClick={() => handleOpenAvailabilityDialog(section)}
+                    >
+                      Import Availability
                     </Button>
                     <Button 
                       size="small" 
@@ -1532,6 +1606,74 @@ const CandidateSectionManagement = () => {
             </Select>
           </FormControl>
         </TemplateSelectionDialog>
+        
+        {/* Faculty Availability Import Dialog */}
+        <Dialog 
+          open={availabilityDialogOpen} 
+          onClose={handleCloseAvailabilityDialog}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>
+            Import Faculty Availability for {selectedSection?.candidate.first_name} {selectedSection?.candidate.last_name}
+          </DialogTitle>
+          <DialogContent>
+            {facultyAvailability.length === 0 ? (
+              <Typography sx={{ mt: 2 }}>
+                No faculty availability submissions found for this candidate.
+              </Typography>
+            ) : (
+              <List>
+                {facultyAvailability.map((availability) => (
+                  <ListItem key={availability.id} divider sx={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', mb: 1 }}>
+                      <Typography variant="subtitle1">
+                        {availability.faculty_name} ({availability.faculty_email})
+                      </Typography>
+                      <Typography variant="body2">
+                        Room: {availability.faculty_room || 'Not specified'}
+                      </Typography>
+                    </Box>
+                    
+                    {availability.notes && (
+                      <Typography variant="body2" sx={{ mt: 1, mb: 1 }}>
+                        Notes: {availability.notes}
+                      </Typography>
+                    )}
+                    
+                    <Typography variant="subtitle2" sx={{ mt: 1 }}>
+                      Available Times:
+                    </Typography>
+                    
+                    <List dense sx={{ width: '100%' }}>
+                      {availability.time_slots.map((slot, index) => (
+                        <ListItem key={index} sx={{ bgcolor: 'background.paper', borderRadius: 1, mb: 1 }}>
+                          <ListItemText
+                            primary={`${format(parseISO(slot.start_time), 'MMM d, yyyy h:mm a')} - ${format(parseISO(slot.end_time), 'h:mm a')}`}
+                          />
+                        </ListItem>
+                      ))}
+                    </List>
+                    
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={() => handleImportAvailability(availability.id)}
+                      sx={{ mt: 2, alignSelf: 'flex-end' }}
+                    >
+                      Import All Times
+                    </Button>
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseAvailabilityDialog}>
+              Close
+            </Button>
+          </DialogActions>
+        </Dialog>
         
         {/* Snackbar for notifications */}
         <Snackbar 

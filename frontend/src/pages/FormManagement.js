@@ -34,6 +34,7 @@ import {
   FormControlLabel,
   FormHelperText,
   Autocomplete,
+  CircularProgress,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -41,10 +42,13 @@ import {
   Add as AddIcon,
   Visibility as VisibilityIcon,
   Email as EmailIcon,
+  PersonAdd as PersonAddIcon,
 } from '@mui/icons-material';
-import api, { usersAPI } from '../api/api';
+import api, { usersAPI, availabilityInvitationAPI, seasonsAPI, candidateSectionsAPI } from '../api/api';
 import { useAuth } from '../context/AuthContext';
 import FormSubmissions from '../components/admin/FormSubmissions';
+import FacultyAvailabilitySubmissions from '../components/admin/FacultyAvailabilitySubmissions';
+import { format, parseISO } from 'date-fns';
 
 const FIELD_TYPES = [
   { value: 'text', label: 'Text' },
@@ -77,6 +81,15 @@ const FormManagement = () => {
   });
   const [selectedFormForSubmissions, setSelectedFormForSubmissions] = useState(null);
   const [submissionsDialogOpen, setSubmissionsDialogOpen] = useState(false);
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [seasons, setSeasons] = useState([]);
+  const [selectedSeason, setSelectedSeason] = useState(null);
+  const [candidateSections, setCandidateSections] = useState([]);
+  const [selectedCandidates, setSelectedCandidates] = useState([]);
+  const [facultyUsers, setFacultyUsers] = useState([]);
+  const [selectedFaculty, setSelectedFaculty] = useState([]);
+  const [sendingInvitations, setSendingInvitations] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   useEffect(() => {
     fetchForms();
@@ -84,6 +97,24 @@ const FormManagement = () => {
       fetchUsers();
     }
   }, [currentUser, isAdmin]);
+
+  useEffect(() => {
+    // Add a virtual "Faculty Availability" form to the forms list
+    const facultyAvailabilityForm = {
+      id: 'faculty-availability',
+      title: 'Faculty Availability Form',
+      description: 'Invite faculty members to submit their availability for candidate meetings.',
+      is_active: true,
+      isVirtual: true // Flag to identify it's not a real form
+    };
+    
+    // Check if the virtual form is already in the list
+    const formExists = forms.some(form => form.id === 'faculty-availability');
+    
+    if (!formExists && forms.length > 0) {
+      setForms(prevForms => [facultyAvailabilityForm, ...prevForms]);
+    }
+  }, [forms]);
 
   const fetchForms = async () => {
     try {
@@ -104,6 +135,11 @@ const FormManagement = () => {
   };
 
   const handleEditForm = (form) => {
+    // Skip editing for the virtual faculty availability form
+    if (form.id === 'faculty-availability') {
+      return;
+    }
+    
     setEditingForm(form);
     setFormData({
       title: form.title,
@@ -116,6 +152,11 @@ const FormManagement = () => {
   };
 
   const handleDeleteForm = async (formId) => {
+    // Skip deletion for the virtual faculty availability form
+    if (formId === 'faculty-availability') {
+      return;
+    }
+    
     if (window.confirm('Are you sure you want to delete this form?')) {
       try {
         await api.delete(`/forms/${formId}/`);
@@ -308,6 +349,139 @@ ${currentUser?.email}`);
     }
   };
 
+  const fetchSeasons = async () => {
+    try {
+      const response = await seasonsAPI.getSeasons();
+      const currentDate = new Date();
+      const activeSeasons = response.data.filter(season => 
+        parseISO(season.end_date) >= currentDate
+      );
+      setSeasons(activeSeasons);
+    } catch (err) {
+      console.error('Error fetching seasons:', err);
+      setSnackbar({
+        open: true,
+        message: 'Failed to load seasons',
+        severity: 'error'
+      });
+    }
+  };
+
+  const fetchCandidateSections = async (seasonId) => {
+    try {
+      const response = await candidateSectionsAPI.getCandidateSectionsBySeason(seasonId);
+      setCandidateSections(response.data);
+      setSelectedSeason(seasonId);
+    } catch (err) {
+      console.error('Error fetching candidate sections:', err);
+      setSnackbar({
+        open: true,
+        message: 'Failed to load candidates',
+        severity: 'error'
+      });
+    }
+  };
+
+  const fetchFacultyUsers = async () => {
+    try {
+      const response = await api.get('/users/?user_type=faculty');
+      setFacultyUsers(response.data);
+    } catch (err) {
+      console.error('Error fetching faculty users:', err);
+      setSnackbar({
+        open: true,
+        message: 'Failed to load faculty users',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleOpenInviteDialog = async () => {
+    await fetchSeasons();
+    await fetchFacultyUsers();
+    setSelectedCandidates([]);
+    setSelectedFaculty([]);
+    setSelectedSeason(null);
+    setCandidateSections([]);
+    setShowInviteDialog(true);
+  };
+
+  const handleCloseInviteDialog = () => {
+    setShowInviteDialog(false);
+  };
+
+  const handleSelectCandidate = (candidateId) => {
+    setSelectedCandidates(prev => {
+      if (prev.includes(candidateId)) {
+        return prev.filter(id => id !== candidateId);
+      } else {
+        return [...prev, candidateId];
+      }
+    });
+  };
+
+  const handleSelectFaculty = (facultyId) => {
+    setSelectedFaculty(prev => {
+      if (prev.includes(facultyId)) {
+        return prev.filter(id => id !== facultyId);
+      } else {
+        return [...prev, facultyId];
+      }
+    });
+  };
+
+  const handleSendInvitations = async () => {
+    if (selectedCandidates.length === 0 || selectedFaculty.length === 0) {
+      setSnackbar({
+        open: true,
+        message: 'Please select at least one candidate and one faculty member',
+        severity: 'error'
+      });
+      return;
+    }
+    
+    try {
+      setSendingInvitations(true);
+      
+      // Add console logging to debug the request
+      console.log("Sending invitation request with data:", {
+        faculty_ids: selectedFaculty,
+        candidate_section_ids: selectedCandidates,
+        send_email: true
+      });
+      
+      const response = await availabilityInvitationAPI.inviteFaculty(
+        selectedFaculty,
+        selectedCandidates,
+        true
+      );
+      
+      console.log("Invitation response:", response);
+      
+      setSnackbar({
+        open: true,
+        message: `Successfully sent invitations: ${response.data.message}`,
+        severity: 'success'
+      });
+      
+      handleCloseInviteDialog();
+    } catch (err) {
+      console.error('Error sending invitations:', err);
+      console.error('Error details:', err.response?.data);
+      setSnackbar({
+        open: true,
+        message: 'Failed to send invitations: ' + (err.response?.data?.error || err.message),
+        severity: 'error'
+      });
+    } finally {
+      setSendingInvitations(false);
+    }
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
@@ -363,14 +537,22 @@ ${currentUser?.email}`);
                 <TableCell>{form.title}</TableCell>
                 <TableCell>{form.description}</TableCell>
                 <TableCell>
-                  {form.assigned_to && form.assigned_to.map((user) => (
+                  {form.id === 'faculty-availability' ? (
                     <Chip
-                      key={user.id}
-                      label={user.email}
+                      label="Faculty Members"
                       size="small"
                       sx={{ mr: 0.5, mb: 0.5 }}
                     />
-                  ))}
+                  ) : (
+                    form.assigned_to && form.assigned_to.map((user) => (
+                      <Chip
+                        key={user.id}
+                        label={user.email}
+                        size="small"
+                        sx={{ mr: 0.5, mb: 0.5 }}
+                      />
+                    ))
+                  )}
                 </TableCell>
                 <TableCell>
                   <Chip
@@ -380,33 +562,57 @@ ${currentUser?.email}`);
                   />
                 </TableCell>
                 <TableCell>
-                  <IconButton
-                    color="primary"
-                    onClick={() => handleViewSubmissions(form)}
-                    title="View Submissions"
-                  >
-                    <VisibilityIcon />
-                  </IconButton>
-                  <IconButton
-                    color="primary"
-                    onClick={() => handleEditForm(form)}
-                  >
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton
-                    color="error"
-                    onClick={() => handleDeleteForm(form.id)}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
-                  {isAdmin && (
-                    <IconButton 
-                      color="secondary" 
-                      onClick={() => handleOpenSendLinkDialog(form)}
-                      aria-label="send form link"
-                    >
-                      <EmailIcon />
-                    </IconButton>
+                  {form.id === 'faculty-availability' ? (
+                    // Actions for Faculty Availability form
+                    <>
+                      <IconButton
+                        color="primary"
+                        onClick={() => handleViewSubmissions(form)}
+                        title="View Submissions"
+                      >
+                        <VisibilityIcon />
+                      </IconButton>
+                      <IconButton 
+                        color="secondary" 
+                        onClick={handleOpenInviteDialog}
+                        aria-label="invite faculty members"
+                        title="Invite Faculty Members"
+                      >
+                        <EmailIcon />
+                      </IconButton>
+                    </>
+                  ) : (
+                    // Regular form actions
+                    <>
+                      <IconButton
+                        color="primary"
+                        onClick={() => handleViewSubmissions(form)}
+                        title="View Submissions"
+                      >
+                        <VisibilityIcon />
+                      </IconButton>
+                      <IconButton
+                        color="primary"
+                        onClick={() => handleEditForm(form)}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton
+                        color="error"
+                        onClick={() => handleDeleteForm(form.id)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                      {isAdmin && (
+                        <IconButton 
+                          color="secondary" 
+                          onClick={() => handleOpenSendLinkDialog(form)}
+                          aria-label="send form link"
+                        >
+                          <EmailIcon />
+                        </IconButton>
+                      )}
+                    </>
                   )}
                 </TableCell>
               </TableRow>
@@ -598,27 +804,24 @@ ${currentUser?.email}`);
             <Box sx={{ maxHeight: 300, overflow: 'auto', mb: 2, border: '1px solid #e0e0e0', borderRadius: 1 }}>
               <List>
                 {users.map((user) => (
-                  <React.Fragment key={user.id}>
-                    <ListItem 
-                      button 
-                      onClick={() => handleToggleUser(user)}
-                      selected={selectedUsers.some(u => u.id === user.id)}
-                    >
-                      <ListItemIcon>
-                        <Checkbox
-                          edge="start"
-                          checked={selectedUsers.some(u => u.id === user.id)}
-                          tabIndex={-1}
-                          disableRipple
-                        />
-                      </ListItemIcon>
-                      <ListItemText 
-                        primary={user.full_name || user.email} 
-                        secondary={user.email}
+                  <ListItem 
+                    button 
+                    onClick={() => handleToggleUser(user)}
+                    selected={selectedUsers.some(u => u.id === user.id)}
+                  >
+                    <ListItemIcon>
+                      <Checkbox
+                        edge="start"
+                        checked={selectedUsers.some(u => u.id === user.id)}
+                        tabIndex={-1}
+                        disableRipple
                       />
-                    </ListItem>
-                    <Divider />
-                  </React.Fragment>
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary={user.full_name || user.email} 
+                      secondary={user.email}
+                    />
+                  </ListItem>
                 ))}
               </List>
             </Box>
@@ -673,11 +876,13 @@ ${currentUser?.email}`);
         fullWidth
       >
         <DialogTitle>
-          Form Submissions - {selectedFormForSubmissions?.title}
+          {selectedFormForSubmissions?.title} - Submissions
         </DialogTitle>
         <DialogContent>
-          {selectedFormForSubmissions && (
-            <FormSubmissions formId={selectedFormForSubmissions.id} />
+          {selectedFormForSubmissions?.id === 'faculty-availability' ? (
+            <FacultyAvailabilitySubmissions />
+          ) : (
+            <FormSubmissions formId={selectedFormForSubmissions?.id} />
           )}
         </DialogContent>
         <DialogActions>
@@ -686,14 +891,124 @@ ${currentUser?.email}`);
       </Dialog>
 
       <Snackbar
-        open={!!success}
+        open={snackbar.open}
         autoHideDuration={6000}
-        onClose={() => setSuccess('')}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={() => setSuccess('')} severity="success">
-          {success}
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+          {snackbar.message}
         </Alert>
       </Snackbar>
+
+      <Button
+        variant="contained"
+        color="primary"
+        startIcon={<PersonAddIcon />}
+        onClick={handleOpenInviteDialog}
+        sx={{ ml: 2 }}
+      >
+        Invite Faculty for Availability
+      </Button>
+
+      <Dialog
+        open={showInviteDialog}
+        onClose={handleCloseInviteDialog}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Invite Faculty for Availability</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" paragraph sx={{ mt: 1 }}>
+            Select candidates and faculty members to invite for availability submissions.
+          </Typography>
+          
+          {/* Season Selection */}
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Select Season</InputLabel>
+            <Select
+              value={selectedSeason || ''}
+              onChange={(e) => fetchCandidateSections(e.target.value)}
+              label="Select Season"
+            >
+              {seasons.map((season) => (
+                <MenuItem key={season.id} value={season.id}>
+                  {season.title}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
+          {/* Candidate Selection */}
+          {candidateSections.length > 0 && (
+            <Box sx={{ mt: 3 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                Select Candidates:
+              </Typography>
+              <Paper sx={{ p: 2, maxHeight: 200, overflow: 'auto' }}>
+                <List dense>
+                  {candidateSections.map((section) => (
+                    <ListItem key={section.id} button onClick={() => handleSelectCandidate(section.id)}>
+                      <Checkbox 
+                        edge="start"
+                        checked={selectedCandidates.includes(section.id)}
+                        tabIndex={-1}
+                        disableRipple
+                      />
+                      <ListItemText 
+                        primary={`${section.candidate.first_name} ${section.candidate.last_name}`}
+                        secondary={
+                          section.arrival_date && section.leaving_date 
+                            ? `Visit: ${format(parseISO(section.arrival_date), 'MMM d')} - ${format(parseISO(section.leaving_date), 'MMM d')}`
+                            : 'No visit dates specified'
+                        }
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </Paper>
+            </Box>
+          )}
+          
+          {/* Faculty Selection */}
+          <Box sx={{ mt: 3 }}>
+            <Typography variant="subtitle1" gutterBottom>
+              Select Faculty:
+            </Typography>
+            <Paper sx={{ p: 2, maxHeight: 200, overflow: 'auto' }}>
+              <List dense>
+                {facultyUsers.map((user) => (
+                  <ListItem key={user.id} button onClick={() => handleSelectFaculty(user.id)}>
+                    <Checkbox 
+                      edge="start"
+                      checked={selectedFaculty.includes(user.id)}
+                      tabIndex={-1}
+                      disableRipple
+                    />
+                    <ListItemText 
+                      primary={`${user.first_name} ${user.last_name}`}
+                      secondary={user.email}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </Paper>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseInviteDialog} disabled={sendingInvitations}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSendInvitations} 
+            variant="contained" 
+            color="primary"
+            disabled={sendingInvitations || selectedCandidates.length === 0 || selectedFaculty.length === 0}
+          >
+            {sendingInvitations ? <CircularProgress size={24} /> : 'Send Invitations'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

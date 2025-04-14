@@ -130,7 +130,9 @@ const SessionCalendar = ({ candidateSections, currentUser, onRegister, onUnregis
             <>
               <Typography variant="body2" sx={{ mt: 1 }}>Attendees:</Typography>
               {attendees.map(a => (
-                <Typography key={a.id} variant="body2" sx={{ pl: 1 }}>• {a.user.first_name} {a.user.last_name}</Typography>
+                <Typography key={a.id} variant="body2" sx={{ pl: 1 }}>
+                  • {a.user?.first_name || ''} {a.user?.last_name || ''}
+                </Typography>
               ))}
             </>
           )}

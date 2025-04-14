@@ -47,6 +47,7 @@ export const usersAPI = {
     candidate_email: candidateEmail, 
     message: message 
   }),
+  completeRoomSetup: (roomNumber) => api.post('/users/complete_room_setup/', { room_number: roomNumber }),
 };
 
 // Recruiting Seasons API (formerly Sessions API)
@@ -113,6 +114,35 @@ export const locationsAPI = {
   createLocation: (locationData) => api.post('/locations/', locationData),
   updateLocation: (id, locationData) => api.patch(`/locations/${id}/`, locationData),
   deleteLocation: (id) => api.delete(`/locations/${id}/`)
+};
+
+export const facultyAvailabilityAPI = {
+  getAvailability: () => api.get('/faculty-availability/'),
+  getAvailabilityById: (id) => api.get(`/faculty-availability/${id}/`),
+  getAvailabilityByCandidate: (candidateSectionId) => api.get(`/faculty-availability/?candidate_section=${candidateSectionId}`),
+  submitAvailability: (availabilityData) => api.post('/faculty-availability/', availabilityData),
+  updateAvailability: (id, availabilityData) => api.patch(`/faculty-availability/${id}/`, availabilityData),
+  deleteAvailability: (id) => api.delete(`/faculty-availability/${id}/`),
+  importAvailability: (availabilityId) => {
+    console.log("Importing availability with ID:", availabilityId);
+    return api.post(`/faculty-availability/${availabilityId}/import_slots/`, {});
+  },
+};
+
+export const availabilityInvitationAPI = {
+  getInvitations: () => api.get('/availability-invitations/'),
+  inviteFaculty: (facultyIds, candidateSectionIds, sendEmail = true) => {
+    console.log("API inviteFaculty called with:", { facultyIds, candidateSectionIds, sendEmail });
+    return api.post('/availability-invitations/invite_faculty/', {
+      faculty_ids: facultyIds,
+      candidate_section_ids: candidateSectionIds,
+      send_email: sendEmail
+    })
+    .catch(error => {
+      console.error("API Error in inviteFaculty:", error.response || error);
+      throw error;
+    });
+  },
 };
 
 export default api;

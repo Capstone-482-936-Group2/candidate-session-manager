@@ -4,7 +4,7 @@ from .models import User
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'email', 'username', 'first_name', 'last_name', 'user_type']
+        fields = ['id', 'email', 'username', 'first_name', 'last_name', 'user_type', 'room_number', 'has_completed_setup']
         read_only_fields = ['id']
 
     def to_representation(self, instance):
@@ -30,7 +30,7 @@ class UserSerializer(serializers.ModelSerializer):
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['email', 'username', 'first_name', 'last_name', 'user_type']
+        fields = ['email', 'username', 'first_name', 'last_name', 'user_type', 'room_number', 'has_completed_setup']
     
     def create(self, validated_data):
         # Create the user without a password
@@ -39,12 +39,15 @@ class RegisterSerializer(serializers.ModelSerializer):
             email=validated_data['email'],
             first_name=validated_data.get('first_name', ''),
             last_name=validated_data.get('last_name', ''),
-            user_type=validated_data.get('user_type', 'candidate')
+            user_type=validated_data.get('user_type', 'candidate'),
+            room_number=validated_data.get('room_number', ''),
+            has_completed_setup=validated_data.get('has_completed_setup', False)
         )
         return user
 
 class UserUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'email', 'username', 'first_name', 'last_name', 'user_type']
-        read_only_fields = ['email', 'username']  # These fields can't be changed
+        fields = ['id', 'email', 'username', 'first_name', 'last_name', 
+                 'user_type', 'room_number', 'has_completed_setup']
+        read_only_fields = ['email', 'username']

@@ -27,7 +27,9 @@ from candidate_sessions.views import (
     LocationTypeViewSet,
     LocationViewSet,
     FormViewSet,
-    FormSubmissionViewSet
+    FormSubmissionViewSet,
+    FacultyAvailabilityViewSet,
+    AvailabilityInvitationViewSet
 )
 
 router = DefaultRouter()
@@ -41,6 +43,8 @@ router.register(r'location-types', LocationTypeViewSet, basename='location-type'
 router.register(r'locations', LocationViewSet, basename='location')
 router.register(r'forms', FormViewSet, basename='form')
 router.register(r'form-submissions', FormSubmissionViewSet, basename='form-submission')
+router.register(r'faculty-availability', FacultyAvailabilityViewSet, basename='faculty-availability')
+router.register(r'availability-invitations', AvailabilityInvitationViewSet, basename='availability-invitation')
 
 # API URLs
 api_urlpatterns = [

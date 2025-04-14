@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Session, CandidateSection, SessionTimeSlot, SessionAttendee, TimeSlotTemplate, LocationType, Location, Form, FormSubmission, FormField, FormFieldOption
+from .models import Session, CandidateSection, SessionTimeSlot, SessionAttendee, TimeSlotTemplate, LocationType, Location, Form, FormSubmission, FormField, FormFieldOption, FacultyAvailability, AvailabilityTimeSlot, AvailabilityInvitation
 from users.serializers import UserSerializer
 from users.models import User
 from datetime import datetime
@@ -383,3 +383,64 @@ class FormSubmissionSerializer(serializers.ModelSerializer):
             data['answers'] = remapped_answers
         
         return data
+
+class AvailabilityTimeSlotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AvailabilityTimeSlot
+        fields = ['id', 'start_time', 'end_time']
+
+class FacultyAvailabilitySerializer(serializers.ModelSerializer):
+    time_slots = AvailabilityTimeSlotSerializer(many=True, read_only=True)
+    faculty_name = serializers.SerializerMethodField()
+    faculty_email = serializers.SerializerMethodField()
+    faculty_room = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = FacultyAvailability
+        fields = ['id', 'faculty', 'candidate_section', 'submitted_at', 'updated_at', 'notes', 
+                  'time_slots', 'faculty_name', 'faculty_email', 'faculty_room']
+        read_only_fields = ['id', 'submitted_at', 'updated_at']
+    
+    def get_faculty_name(self, obj):
+        return f"{obj.faculty.first_name} {obj.faculty.last_name}"
+    
+    def get_faculty_email(self, obj):
+        return obj.faculty.email
+    
+    def get_faculty_room(self, obj):
+        return obj.faculty.room_number
+
+class FacultyAvailabilityCreateSerializer(serializers.ModelSerializer):
+    time_slots = AvailabilityTimeSlotSerializer(many=True)
+    
+    class Meta:
+        model = FacultyAvailability
+        fields = ['candidate_section', 'notes', 'time_slots']
+    
+    def create(self, validated_data):
+        time_slots_data = validated_data.pop('time_slots')
+        availability = FacultyAvailability.objects.create(**validated_data)
+        
+        for time_slot_data in time_slots_data:
+            AvailabilityTimeSlot.objects.create(availability=availability, **time_slot_data)
+        
+        return availability
+
+class AvailabilityInvitationSerializer(serializers.ModelSerializer):
+    faculty_name = serializers.SerializerMethodField()
+    candidate_name = serializers.SerializerMethodField()
+    candidate_section_title = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = AvailabilityInvitation
+        fields = ['id', 'faculty', 'candidate_section', 'created_at', 'email_sent', 
+                  'faculty_name', 'candidate_name', 'candidate_section_title']
+    
+    def get_faculty_name(self, obj):
+        return f"{obj.faculty.first_name} {obj.faculty.last_name}"
+    
+    def get_candidate_name(self, obj):
+        return f"{obj.candidate_section.candidate.first_name} {obj.candidate_section.candidate.last_name}"
+    
+    def get_candidate_section_title(self, obj):
+        return obj.candidate_section.title

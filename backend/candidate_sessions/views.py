@@ -1,9 +1,9 @@
 from django.shortcuts import render
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from django.shortcuts import get_object_or_404
-from .models import Session, CandidateSection, SessionTimeSlot, SessionAttendee, TimeSlotTemplate, LocationType, Location, Form, FormSubmission
+from .models import Session, CandidateSection, SessionTimeSlot, SessionAttendee, TimeSlotTemplate, LocationType, Location, Form, FormSubmission, FacultyAvailability, AvailabilityInvitation
 from .serializers import (
     CandidateSectionSerializer, 
     SessionSerializer,
@@ -18,10 +18,18 @@ from .serializers import (
     LocationTypeSerializer,
     LocationSerializer,
     FormSerializer,
-    FormSubmissionSerializer
+    FormSubmissionSerializer,
+    FacultyAvailabilitySerializer,
+    FacultyAvailabilityCreateSerializer,
+    AvailabilityInvitationSerializer
 )
 from rest_framework import serializers
 import logging
+from rest_framework.permissions import IsAuthenticated
+from django.core.mail import send_mail
+from django.conf import settings
+from django.contrib.auth import get_user_model
+User = get_user_model()
 
 logger = logging.getLogger(__name__)
 
@@ -317,3 +325,202 @@ class FormSubmissionViewSet(viewsets.ModelViewSet):
             raise serializers.ValidationError("You have already submitted this form")
         
         serializer.save(submitted_by=self.request.user)
+
+class FacultyAvailabilityViewSet(viewsets.ModelViewSet):
+    queryset = FacultyAvailability.objects.all()
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return FacultyAvailabilityCreateSerializer
+        return FacultyAvailabilitySerializer
+    
+    def get_queryset(self):
+        user = self.request.user
+        candidate_section_id = self.request.query_params.get('candidate_section')
+        
+        queryset = FacultyAvailability.objects.all()
+        
+        if user.user_type == 'faculty':
+            # Faculty can only see their own submissions
+            queryset = queryset.filter(faculty=user)
+        
+        if candidate_section_id:
+            queryset = queryset.filter(candidate_section_id=candidate_section_id)
+            
+        return queryset
+    
+    def perform_create(self, serializer):
+        # Add print for debugging
+        print(f"Creating faculty availability for user: {self.request.user.id}")
+        serializer.save(faculty=self.request.user)
+    
+    def create(self, request, *args, **kwargs):
+        try:
+            print(f"Create request data: {request.data}")
+            return super().create(request, *args, **kwargs)
+        except Exception as e:
+            print(f"Error creating faculty availability: {str(e)}")
+            return Response(
+                {"detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=True, methods=['post'])
+    def import_slots(self, request, pk=None):
+        user = request.user
+        if not user.is_admin:
+            return Response({"error": "Only admins can import faculty availability"}, 
+                          status=status.HTTP_403_FORBIDDEN)
+        
+        try:
+            availability = self.get_object()
+            faculty = availability.faculty
+            candidate_section = availability.candidate_section
+            
+            created_slots = []
+            
+            for time_slot in availability.time_slots.all():
+                # Create a time slot for the candidate section
+                new_time_slot = SessionTimeSlot.objects.create(
+                    candidate_section=candidate_section,
+                    start_time=time_slot.start_time,
+                    end_time=time_slot.end_time,
+                    max_attendees=1,
+                    location=faculty.room_number or '',
+                    description=f"Meeting with {faculty.first_name} {faculty.last_name}",
+                    is_visible=True
+                )
+                
+                # Automatically register the faculty member for this time slot
+                SessionAttendee.objects.create(
+                    time_slot=new_time_slot,
+                    user=faculty
+                )
+                
+                created_slots.append(new_time_slot.id)
+            
+            return Response({
+                "message": f"Successfully imported {len(created_slots)} time slots from faculty availability",
+                "created_time_slots": created_slots
+            }, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            print(f"Error importing faculty availability: {str(e)}")
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class AvailabilityInvitationViewSet(viewsets.ModelViewSet):
+    queryset = AvailabilityInvitation.objects.all()
+    serializer_class = AvailabilityInvitationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        
+        if user.is_admin:
+            return AvailabilityInvitation.objects.all()
+        
+        # Regular faculty can only see invitations for themselves
+        return AvailabilityInvitation.objects.filter(faculty=user)
+    
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+    
+    @action(detail=False, methods=['post'])
+    def invite_faculty(self, request):
+        """
+        Invite multiple faculty members to submit availability for multiple candidates
+        """
+        if not request.user.is_admin:
+            return Response({"error": "Only admins can send invitations"}, 
+                           status=status.HTTP_403_FORBIDDEN)
+            
+        faculty_ids = request.data.get('faculty_ids', [])
+        candidate_section_ids = request.data.get('candidate_section_ids', [])
+        send_email = request.data.get('send_email', False)
+        
+        # Add debug logging
+        print(f"invite_faculty request data: {request.data}")
+        print(f"faculty_ids: {faculty_ids}")
+        print(f"candidate_section_ids: {candidate_section_ids}")
+        
+        if not faculty_ids or not candidate_section_ids:
+            return Response({"error": "Both faculty_ids and candidate_section_ids are required"}, 
+                           status=status.HTTP_400_BAD_REQUEST)
+            
+        try:
+            faculty_users = User.objects.filter(id__in=faculty_ids, 
+                                              user_type__in=['faculty', 'admin', 'superadmin'])
+            candidate_sections = CandidateSection.objects.filter(id__in=candidate_section_ids)
+            
+            # Add more debug info
+            print(f"Found {faculty_users.count()} faculty users")
+            print(f"Found {candidate_sections.count()} candidate sections")
+            
+            invitations_created = 0
+            
+            for faculty in faculty_users:
+                for section in candidate_sections:
+                    # Create invitation if it doesn't exist
+                    invitation, created = AvailabilityInvitation.objects.get_or_create(
+                        faculty=faculty,
+                        candidate_section=section,
+                        defaults={'created_by': request.user}
+                    )
+                    
+                    if created:
+                        invitations_created += 1
+                    
+                    if send_email and (created or not invitation.email_sent):
+                        # Send email to faculty member
+                        self._send_invitation_email(invitation)
+                        invitation.email_sent = True
+                        invitation.save()
+            
+            return Response({
+                "message": f"Created {invitations_created} new invitations",
+                "faculty_count": faculty_users.count(),
+                "candidate_count": candidate_sections.count(),
+                "total_invitations": faculty_users.count() * candidate_sections.count()
+            }, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            print(f"Error in invite_faculty: {str(e)}")
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+    def _send_invitation_email(self, invitation):
+        """
+        Send an email to faculty member with a link to submit availability
+        """
+        faculty = invitation.faculty
+        candidate = invitation.candidate_section.candidate
+        
+        subject = f"Request to Submit Availability for {candidate.first_name} {candidate.last_name}"
+        from_email = settings.DEFAULT_FROM_EMAIL
+        to_email = faculty.email
+        
+        # Create a message with the link to the availability form
+        frontend_url = settings.FRONTEND_URL.rstrip('/')
+        message = f"""
+Hello {faculty.first_name},
+
+You have been invited to submit your availability for meeting with candidate {candidate.first_name} {candidate.last_name}.
+
+Please go to the Forms page on the Candidate Session Manager and fill out the Faculty Availability Form:
+{frontend_url}/forms
+
+Candidate Visit Dates: {invitation.candidate_section.arrival_date} to {invitation.candidate_section.leaving_date}
+
+Thank you!
+        """
+        
+        try:
+            send_mail(
+                subject,
+                message,
+                from_email,
+                [to_email],
+                fail_silently=False,
+            )
+        except Exception as e:
+            print(f"Error sending invitation email: {str(e)}")

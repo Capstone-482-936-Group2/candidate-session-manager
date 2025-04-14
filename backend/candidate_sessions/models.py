@@ -199,3 +199,43 @@ class FormFieldOption(models.Model):
 
     def __str__(self):
         return f"{self.field.label} - {self.label}"
+
+class FacultyAvailability(models.Model):
+    """
+    Represents a faculty member's availability for meeting with candidates
+    """
+    faculty = models.ForeignKey(User, on_delete=models.CASCADE, related_name='availability_submissions')
+    candidate_section = models.ForeignKey(CandidateSection, on_delete=models.CASCADE, related_name='faculty_availability')
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    notes = models.TextField(blank=True)
+    
+    def __str__(self):
+        return f"{self.faculty.email} - {self.candidate_section.title}"
+
+class AvailabilityTimeSlot(models.Model):
+    """
+    Represents a time slot when a faculty member is available
+    """
+    availability = models.ForeignKey(FacultyAvailability, on_delete=models.CASCADE, related_name='time_slots')
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
+    
+    def __str__(self):
+        return f"{self.availability.faculty.email} - {self.start_time.strftime('%Y-%m-%d %H:%M')}"
+
+class AvailabilityInvitation(models.Model):
+    """
+    Tracks which faculty members are invited to submit availability for which candidates
+    """
+    faculty = models.ForeignKey(User, on_delete=models.CASCADE, related_name='availability_invitations')
+    candidate_section = models.ForeignKey(CandidateSection, on_delete=models.CASCADE, related_name='faculty_invitations')
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_invitations')
+    created_at = models.DateTimeField(auto_now_add=True)
+    email_sent = models.BooleanField(default=False)
+    
+    class Meta:
+        unique_together = ('faculty', 'candidate_section')
+    
+    def __str__(self):
+        return f"{self.faculty.email} - {self.candidate_section.title}"

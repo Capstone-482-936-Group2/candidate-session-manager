@@ -31,6 +31,8 @@ class User(AbstractUser):
     
     email = models.EmailField(unique=True)
     user_type = models.CharField(max_length=10, choices=USER_TYPE_CHOICES, default='candidate')
+    room_number = models.CharField(max_length=50, blank=True, null=True, verbose_name="Room Number/Office Location")
+    has_completed_setup = models.BooleanField(default=False)
     
     objects = UserManager()
     
@@ -47,3 +49,7 @@ class User(AbstractUser):
     @property
     def is_superadmin(self):
         return self.user_type == 'superadmin'
+    
+    @property
+    def needs_room_setup(self):
+        return not self.has_completed_setup and self.user_type in ['faculty', 'admin', 'superadmin']
