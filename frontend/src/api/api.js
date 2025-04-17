@@ -28,7 +28,9 @@ api.interceptors.request.use(config => {
 
 // Authentication API
 export const authAPI = {
-  googleLogin: (idToken) => api.post('/users/google_login/', { access_token: idToken }),
+  googleLogin: async (data) => {
+    return await api.post('/users/google_login/', data);
+  },
   logout: () => api.post('/users/logout/'),
   register: (userData) => api.post('/users/register/', userData),
   getCurrentUser: () => api.get('/users/me/'),
@@ -36,7 +38,11 @@ export const authAPI = {
 
 // User Management API
 export const usersAPI = {
-  getUsers: () => api.get('/users/'),
+  getUsers: () => api.get('/users/', {
+    params: {
+      include_profile: true  // Add this parameter to get candidate profiles
+    }
+  }),
   getUser: (id) => api.get(`/users/${id}/`),
   addUser: (userData) => api.post('/users/', userData),
   updateUser: (id, userData) => api.patch(`/users/${id}/`, userData),
@@ -48,6 +54,61 @@ export const usersAPI = {
     message: message 
   }),
   completeRoomSetup: (roomNumber) => api.post('/users/complete_room_setup/', { room_number: roomNumber }),
+  uploadHeadshot: async (formData) => {
+    try {
+      const response = await api.post('/users/upload_headshot/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      if (!response.data || !response.data.url) {
+        throw new Error('Invalid response from server');
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error('Upload error details:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  completeCandidateSetup: async (profileData) => {
+    try {
+      const response = await api.post('/users/complete_candidate_setup/', profileData);
+      console.log('API response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error completing candidate setup:', error);
+      throw error;
+    }
+  },
+  me: async () => {
+    return await api.get('/users/me/');
+  },
+  googleLogin: async (credential) => {
+    console.log("API googleLogin called with:", credential);
+    
+    // Format the data properly - the backend expects 'credential', not 'access_token'
+    const data = {
+      credential: typeof credential === 'string' 
+        ? credential 
+        : credential.credential
+    };
+    
+    try {
+      return await api.post('/users/google_login/', data);
+    } catch (error) {
+      console.error("Google login error details:", error.response?.data);
+      throw error;
+    }
+  },
+  logout: async () => {
+    return await api.post('/users/logout/');
+  },
+  downloadHeadshot: (url) => api.get('/users/download_headshot/', {
+    params: { url },
+    responseType: 'blob'
+  }),
 };
 
 // Recruiting Seasons API (formerly Sessions API)
@@ -143,6 +204,10 @@ export const availabilityInvitationAPI = {
       throw error;
     });
   },
+};
+
+export const testAPI = {
+  testS3: () => api.post('/users/test_s3/'),
 };
 
 export default api;

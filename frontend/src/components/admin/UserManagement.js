@@ -5,9 +5,10 @@ import {
   DialogTitle, FormControl, InputLabel, Select, MenuItem, TextField,
   Snackbar, Alert, Box, IconButton
 } from '@mui/material';
-import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
+import { Delete as DeleteIcon, Edit as EditIcon, Visibility as VisibilityIcon } from '@mui/icons-material';
 import { usersAPI } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
+import CandidateProfileDialog from './CandidateProfileDialog';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -26,6 +27,8 @@ const UserManagement = () => {
     last_name: '',
     room_number: '',
   });
+  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
 
   useEffect(() => {
     fetchUsers();
@@ -194,6 +197,15 @@ const UserManagement = () => {
     }
   };
 
+  // Separate users into candidates and staff
+  const candidates = users.filter(user => user.user_type === 'candidate');
+  const staff = users.filter(user => user.user_type !== 'candidate');
+
+  const handleViewProfile = (candidate) => {
+    setSelectedCandidate(candidate);
+    setProfileDialogOpen(true);
+  };
+
   if (loading) return <Typography>Loading users...</Typography>;
   if (error) return <Typography color="error">{error}</Typography>;
 
@@ -212,7 +224,9 @@ const UserManagement = () => {
         </Button>
       </Box>
 
-      <TableContainer component={Paper}>
+      {/* Staff Table */}
+      <Typography variant="h6" gutterBottom>Staff Members</Typography>
+      <TableContainer component={Paper} sx={{ mb: 4 }}>
         <Table>
           <TableHead>
             <TableRow>
@@ -224,30 +238,56 @@ const UserManagement = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {users.map((user) => (
+            {staff.map((user) => (
               <TableRow key={user.id}>
                 <TableCell>{user.email}</TableCell>
-                <TableCell>
-                  {user.first_name} {user.last_name}
-                </TableCell>
+                <TableCell>{`${user.first_name} ${user.last_name}`}</TableCell>
                 <TableCell>{user.user_type}</TableCell>
+                <TableCell>{user.room_number}</TableCell>
                 <TableCell>
-                  {(user.user_type === 'faculty' || user.user_type === 'admin' || user.user_type === 'superadmin') ? 
-                    (user.room_number || '-') : 
-                    'N/A'
-                  }
-                </TableCell>
-                <TableCell>
-                  <IconButton
-                    color="primary"
-                    onClick={() => handleOpenDialog(user)}
-                  >
+                  <IconButton onClick={() => handleOpenDialog(user)}>
                     <EditIcon />
                   </IconButton>
-                  <IconButton
-                    color="error"
-                    onClick={() => handleDeleteClick(user)}
+                  <IconButton onClick={() => handleDeleteClick(user)}>
+                    <DeleteIcon />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Candidates Table */}
+      <Typography variant="h6" gutterBottom>Candidates</Typography>
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Email</TableCell>
+              <TableCell>Name</TableCell>
+              <TableCell>Setup Complete</TableCell>
+              <TableCell>Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {candidates.map((user) => (
+              <TableRow key={user.id}>
+                <TableCell>{user.email}</TableCell>
+                <TableCell>{`${user.first_name} ${user.last_name}`}</TableCell>
+                <TableCell>{user.has_completed_setup ? 'Yes' : 'No'}</TableCell>
+                <TableCell>
+                  <IconButton 
+                    onClick={() => handleViewProfile(user)}
+                    disabled={!user.has_completed_setup}
+                    title={user.has_completed_setup ? "View Profile" : "Setup not completed"}
                   >
+                    <VisibilityIcon />
+                  </IconButton>
+                  <IconButton onClick={() => handleOpenDialog(user)}>
+                    <EditIcon />
+                  </IconButton>
+                  <IconButton onClick={() => handleDeleteClick(user)}>
                     <DeleteIcon />
                   </IconButton>
                 </TableCell>
@@ -363,6 +403,13 @@ const UserManagement = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Add CandidateProfileDialog */}
+      <CandidateProfileDialog
+        open={profileDialogOpen}
+        onClose={() => setProfileDialogOpen(false)}
+        candidate={selectedCandidate}
+      />
     </Box>
   );
 };

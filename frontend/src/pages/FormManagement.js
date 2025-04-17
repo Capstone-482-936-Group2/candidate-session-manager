@@ -43,6 +43,7 @@ import {
   Visibility as VisibilityIcon,
   Email as EmailIcon,
   PersonAdd as PersonAddIcon,
+  ImportExport as ImportIcon,
 } from '@mui/icons-material';
 import api, { usersAPI, availabilityInvitationAPI, seasonsAPI, candidateSectionsAPI } from '../api/api';
 import { useAuth } from '../context/AuthContext';
@@ -482,6 +483,84 @@ ${currentUser?.email}`);
     setSnackbar({ ...snackbar, open: false });
   };
 
+  const handleImportPreferredFaculty = async (candidateId) => {
+    try {
+      // Find the selected candidate section
+      const selectedSection = candidateSections.find(section => section.id === candidateId);
+      
+      if (!selectedSection || !selectedSection.candidate || !selectedSection.candidate.id) {
+        console.error('Cannot find candidate data for importing preferred faculty');
+        return;
+      }
+      
+      // Find the full candidate user object with profile data
+      const candidateResponse = await usersAPI.getUser(selectedSection.candidate.id);
+      const candidateWithProfile = candidateResponse.data;
+      
+      if (!candidateWithProfile || !candidateWithProfile.candidate_profile || 
+          !candidateWithProfile.candidate_profile.preferred_faculty) {
+        setSnackbar({
+          open: true,
+          message: 'This candidate has not provided any preferred faculty members.',
+          severity: 'info'
+        });
+        return;
+      }
+      
+      // Get the preferred faculty IDs from the candidate profile
+      const preferredFacultyIds = candidateWithProfile.candidate_profile.preferred_faculty;
+      
+      if (!Array.isArray(preferredFacultyIds) || preferredFacultyIds.length === 0) {
+        setSnackbar({
+          open: true,
+          message: 'This candidate has not selected any preferred faculty members.',
+          severity: 'info'
+        });
+        return;
+      }
+      
+      // Auto-select these faculty members
+      const validFacultyIds = preferredFacultyIds.filter(id => 
+        // Ensure the ID is in the facultyUsers list
+        facultyUsers.some(faculty => faculty.id === id)
+      );
+      
+      if (validFacultyIds.length === 0) {
+        setSnackbar({
+          open: true,
+          message: 'None of the candidate\'s preferred faculty members are available in the system.',
+          severity: 'warning'
+        });
+        return;
+      }
+      
+      // Add the valid faculty IDs to the selected faculty list (avoiding duplicates)
+      setSelectedFaculty(prev => {
+        const newSelection = [...prev];
+        validFacultyIds.forEach(id => {
+          if (!newSelection.includes(id)) {
+            newSelection.push(id);
+          }
+        });
+        return newSelection;
+      });
+      
+      setSnackbar({
+        open: true,
+        message: `Imported ${validFacultyIds.length} preferred faculty member(s) for this candidate.`,
+        severity: 'success'
+      });
+      
+    } catch (error) {
+      console.error('Error importing preferred faculty:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to import preferred faculty members. Please try again.',
+        severity: 'error'
+      });
+    }
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
@@ -901,16 +980,6 @@ ${currentUser?.email}`);
         </Alert>
       </Snackbar>
 
-      <Button
-        variant="contained"
-        color="primary"
-        startIcon={<PersonAddIcon />}
-        onClick={handleOpenInviteDialog}
-        sx={{ ml: 2 }}
-      >
-        Invite Faculty for Availability
-      </Button>
-
       <Dialog
         open={showInviteDialog}
         onClose={handleCloseInviteDialog}
@@ -939,7 +1008,7 @@ ${currentUser?.email}`);
             </Select>
           </FormControl>
           
-          {/* Candidate Selection */}
+          {/* Candidate Selection with Import buttons */}
           {candidateSections.length > 0 && (
             <Box sx={{ mt: 3 }}>
               <Typography variant="subtitle1" gutterBottom>
@@ -948,13 +1017,30 @@ ${currentUser?.email}`);
               <Paper sx={{ p: 2, maxHeight: 200, overflow: 'auto' }}>
                 <List dense>
                   {candidateSections.map((section) => (
-                    <ListItem key={section.id} button onClick={() => handleSelectCandidate(section.id)}>
-                      <Checkbox 
-                        edge="start"
-                        checked={selectedCandidates.includes(section.id)}
-                        tabIndex={-1}
-                        disableRipple
-                      />
+                    <ListItem 
+                      key={section.id} 
+                      secondaryAction={
+                        <Button
+                          size="small"
+                          startIcon={<ImportIcon fontSize="small" />}
+                          onClick={() => handleImportPreferredFaculty(section.id)}
+                          title="Import Preferred Faculty Selections"
+                          variant="outlined"
+                          sx={{ fontSize: '0.75rem' }}
+                        >
+                          Import Selections
+                        </Button>
+                      }
+                    >
+                      <ListItemIcon>
+                        <Checkbox 
+                          edge="start"
+                          checked={selectedCandidates.includes(section.id)}
+                          onClick={() => handleSelectCandidate(section.id)}
+                          tabIndex={-1}
+                          disableRipple
+                        />
+                      </ListItemIcon>
                       <ListItemText 
                         primary={`${section.candidate.first_name} ${section.candidate.last_name}`}
                         secondary={
@@ -962,6 +1048,8 @@ ${currentUser?.email}`);
                             ? `Visit: ${format(parseISO(section.arrival_date), 'MMM d')} - ${format(parseISO(section.leaving_date), 'MMM d')}`
                             : 'No visit dates specified'
                         }
+                        onClick={() => handleSelectCandidate(section.id)}
+                        sx={{ cursor: 'pointer' }}
                       />
                     </ListItem>
                   ))}

@@ -10,3 +10,5 @@ router.register(r'', views.UserViewSet, basename='users')
 urlpatterns = [
     path('', include(router.urls)),
 ]
+
+# Add the test-s3 endpoint as a viewset action instead

@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { authAPI, usersAPI } from '../api/api';
+import { authAPI } from '../api/api';
+import CandidateSetupForm from '../components/candidate/CandidateSetupForm';
 import RoomSetupDialog from '../components/auth/RoomSetupDialog';
 
 const AuthContext = createContext();
@@ -10,6 +11,9 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Add states for setup windows
+  const [showCandidateSetup, setShowCandidateSetup] = useState(false);
   const [showRoomSetup, setShowRoomSetup] = useState(false);
 
   // Function to store auth state in localStorage
@@ -35,6 +39,17 @@ export const AuthProvider = ({ children }) => {
     return null;
   };
 
+  // Function to check if user needs setup
+  const checkUserSetupNeeds = (user) => {
+    if (!user || user.has_completed_setup) return;
+    
+    if (user.user_type === 'candidate') {
+      setShowCandidateSetup(true);
+    } else if (['faculty', 'admin', 'superadmin'].includes(user.user_type)) {
+      setShowRoomSetup(true);
+    }
+  };
+
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -42,21 +57,15 @@ export const AuthProvider = ({ children }) => {
         const storedUser = loadAuthState();
         if (storedUser) {
           setCurrentUser(storedUser);
+          checkUserSetupNeeds(storedUser);
         }
 
         // Then verify with the server
         const response = await authAPI.getCurrentUser();
         const user = response.data;
-        
-        // Only show setup dialog if needed and not already completed
-        if (user.user_type !== 'candidate' && !user.has_completed_setup) {
-          setShowRoomSetup(true);
-        } else {
-          setShowRoomSetup(false);
-        }
-        
         setCurrentUser(user);
         storeAuthState(user);
+        checkUserSetupNeeds(user);
       } catch (err) {
         console.log('Not authenticated');
         setCurrentUser(null);
@@ -73,6 +82,9 @@ export const AuthProvider = ({ children }) => {
       if (e.key === 'authState') {
         const newUser = e.newValue ? JSON.parse(e.newValue) : null;
         setCurrentUser(newUser);
+        if (newUser) {
+          checkUserSetupNeeds(newUser);
+        }
       }
     };
 
@@ -85,16 +97,9 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authAPI.googleLogin(accessToken);
       const user = response.data;
-      
-      // Check if room setup is needed only for faculty/admin/superadmin who haven't completed setup
-      if (user.user_type !== 'candidate' && !user.has_completed_setup) {
-        setShowRoomSetup(true);
-      } else {
-        setShowRoomSetup(false);  // Ensure dialog is closed for other cases
-      }
-      
       setCurrentUser(user);
       storeAuthState(user);
+      checkUserSetupNeeds(user);
       return user;
     } catch (err) {
       setError(err.response?.data?.error || 'Google login failed');
@@ -107,6 +112,8 @@ export const AuthProvider = ({ children }) => {
       await authAPI.logout();
       setCurrentUser(null);
       storeAuthState(null);
+      setShowCandidateSetup(false);
+      setShowRoomSetup(false);
     } catch (err) {
       setError(err.response?.data?.error || 'Logout failed');
       throw err;
@@ -124,20 +131,26 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const handleRoomSetupComplete = async (roomNumber) => {
-    try {
-      const response = await usersAPI.completeRoomSetup(roomNumber);
-      const updatedUser = response.data;
-      setCurrentUser(updatedUser);
-      storeAuthState(updatedUser);  // Make sure to update localStorage
+  // Handler for room setup completion
+  const handleRoomSetupComplete = (roomNumber) => {
+    if (currentUser) {
+      setCurrentUser({
+        ...currentUser,
+        room_number: roomNumber,
+        has_completed_setup: true
+      });
+      storeAuthState({
+        ...currentUser,
+        room_number: roomNumber,
+        has_completed_setup: true
+      });
       setShowRoomSetup(false);
-    } catch (err) {
-      console.error('Error completing room setup:', err);
     }
   };
 
   const value = {
     currentUser,
+    setCurrentUser,
     loginWithGoogle,
     logout,
     register,
@@ -147,16 +160,24 @@ export const AuthProvider = ({ children }) => {
     isFaculty: ['faculty', 'admin', 'superadmin'].includes(currentUser?.user_type),
     isAdmin: ['admin', 'superadmin'].includes(currentUser?.user_type),
     isSuperAdmin: currentUser?.user_type === 'superadmin',
+    setShowCandidateSetup,
+    user: currentUser, // Added for component compatibility
+    setUser: setCurrentUser, // Added for component compatibility
   };
 
   return (
     <AuthContext.Provider value={value}>
       {children}
-      <RoomSetupDialog
-        open={showRoomSetup}
-        currentRoomNumber={currentUser?.room_number}
-        onComplete={handleRoomSetupComplete}
-      />
+      
+      {/* Show setup dialogs when needed */}
+      {showCandidateSetup && currentUser && <CandidateSetupForm />}
+      {showRoomSetup && currentUser && (
+        <RoomSetupDialog 
+          open={showRoomSetup} 
+          currentRoomNumber={currentUser.room_number} 
+          onComplete={handleRoomSetupComplete} 
+        />
+      )}
     </AuthContext.Provider>
   );
 };

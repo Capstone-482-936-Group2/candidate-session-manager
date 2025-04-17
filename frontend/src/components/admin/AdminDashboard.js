@@ -6,6 +6,7 @@ import TimeSlotTemplateManagement from './TimeSlotTemplateManagement';
 import LocationManagement from './LocationManagement';
 import { useLocation } from 'react-router-dom';
 import FormManagement from '../../pages/FormManagement';
+import S3Test from '../tests/S3Test';
 
 function TabPanel(props) {
   const { children, value, index, ...other } = props;
@@ -59,6 +60,7 @@ const AdminDashboard = () => {
         {tabValue === 3 && <LocationManagement />}
         {tabValue === 4 && <FormManagement />}
       </Box>
+      {/* <S3Test /> */}
     </Box>
   );
 };

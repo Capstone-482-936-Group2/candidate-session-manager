@@ -31,6 +31,8 @@ from candidate_sessions.views import (
     FacultyAvailabilityViewSet,
     AvailabilityInvitationViewSet
 )
+from django.conf import settings
+from django.conf.urls.static import static
 
 router = DefaultRouter()
 router.register(r'users', UserViewSet)
@@ -59,3 +61,7 @@ urlpatterns = [
     path('api/', include(api_urlpatterns)),  # All API routes under /api/
     path('api-auth/', include('rest_framework.urls')),
 ]
+
+# Add this at the end of the file, after urlpatterns
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

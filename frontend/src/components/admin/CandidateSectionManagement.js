@@ -10,7 +10,7 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { Add as AddIcon, Delete as DeleteIcon, ArrowBack as ArrowBackIcon, Edit as EditIcon, ImportExport as ImportIcon } from '@mui/icons-material';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, parseJSON } from 'date-fns';
 import { useParams, Link } from 'react-router-dom';
 import { usersAPI, seasonsAPI, candidateSectionsAPI, timeSlotsAPI, timeSlotTemplatesAPI, facultyAvailabilityAPI } from '../../api/api';
 import TemplateSelectionDialog from './TemplateSelectionDialog';
@@ -84,6 +84,11 @@ const CandidateSectionManagement = () => {
   // Add these state variables with your other state declarations
   const [facultyAvailability, setFacultyAvailability] = useState([]);
   const [availabilityDialogOpen, setAvailabilityDialogOpen] = useState(false);
+
+  // Add new state variables inside the CandidateSectionManagement component:
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [candidateProfile, setCandidateProfile] = useState(null);
+  const [selectedDateRange, setSelectedDateRange] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -854,6 +859,85 @@ const CandidateSectionManagement = () => {
     }
   };
 
+  // Add these functions to the component to handle the import functionality
+  const handleOpenImportDialog = async () => {
+    // Only open import dialog if a candidate is selected
+    if (!sectionForm.candidate) {
+      setSnackbar({
+        open: true,
+        message: 'Please select a candidate first',
+        severity: 'warning'
+      });
+      return;
+    }
+    
+    try {
+      // Find the selected candidate's data
+      const candidateId = parseInt(sectionForm.candidate);
+      const selectedCandidate = users.find(user => user.id === candidateId);
+      
+      if (selectedCandidate && selectedCandidate.candidate_profile) {
+        setCandidateProfile(selectedCandidate.candidate_profile);
+        setSelectedDateRange(null);
+        setImportDialogOpen(true);
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'No profile data available for this candidate',
+          severity: 'warning'
+        });
+      }
+    } catch (error) {
+      console.error('Error handling import dialog:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to load candidate profile data',
+        severity: 'error'
+      });
+    }
+  };
+
+  const handleCloseImportDialog = () => {
+    setImportDialogOpen(false);
+    setSelectedDateRange(null);
+  };
+
+  const handleImportDateRange = () => {
+    if (!selectedDateRange) {
+      setSnackbar({
+        open: true,
+        message: 'Please select a date range',
+        severity: 'warning'
+      });
+      return;
+    }
+    
+    // Update the section form with the selected date range
+    setSectionForm(prev => ({
+      ...prev,
+      arrival_date: new Date(selectedDateRange.startDate),
+      leaving_date: new Date(selectedDateRange.endDate),
+      // Set transportation needs based on candidate profile preferences
+      needs_transportation: candidateProfile.travel_assistance === 'all' || 
+                           candidateProfile.travel_assistance === 'some'
+    }));
+    
+    setImportDialogOpen(false);
+    
+    setSnackbar({
+      open: true,
+      message: 'Date range imported successfully',
+      severity: 'success'
+    });
+  };
+
+  // Format date ranges for display
+  const formatDateRange = (dateRange) => {
+    if (!dateRange || !dateRange.startDate || !dateRange.endDate) return null;
+    
+    return `${format(new Date(dateRange.startDate), 'MMMM d, yyyy')} to ${format(new Date(dateRange.endDate), 'MMMM d, yyyy')}`;
+  };
+
   if (loading) return (
     <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
       <CircularProgress />
@@ -1140,6 +1224,18 @@ const CandidateSectionManagement = () => {
                 />
               </Grid>
               <Grid item xs={12}>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                  <Button
+                    startIcon={<ImportIcon />}
+                    variant="outlined"
+                    onClick={handleOpenImportDialog}
+                    disabled={!sectionForm.candidate}
+                  >
+                    Import Candidate's Preferred Dates
+                  </Button>
+                </Box>
+              </Grid>
+              <Grid item xs={12}>
                 <TextField
                   name="description"
                   label="Description"
@@ -1228,6 +1324,18 @@ const CandidateSectionManagement = () => {
                   renderInput={(params) => <TextField {...params} fullWidth />}
                   minDate={sectionForm.arrival_date}
                 />
+              </Grid>
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+                  <Button
+                    startIcon={<ImportIcon />}
+                    variant="outlined"
+                    onClick={handleOpenImportDialog}
+                    disabled={!sectionForm.candidate}
+                  >
+                    Import Candidate's Preferred Dates
+                  </Button>
+                </Box>
               </Grid>
               <Grid item xs={12}>
                 <TextField
@@ -1671,6 +1779,71 @@ const CandidateSectionManagement = () => {
           <DialogActions>
             <Button onClick={handleCloseAvailabilityDialog}>
               Close
+            </Button>
+          </DialogActions>
+        </Dialog>
+        
+        {/* Import Preferred Dates Dialog */}
+        <Dialog open={importDialogOpen} onClose={handleCloseImportDialog} maxWidth="sm" fullWidth>
+          <DialogTitle>Import Candidate's Preferred Visit Dates</DialogTitle>
+          <DialogContent>
+            {candidateProfile && (
+              <>
+                <Typography variant="body1" paragraph sx={{ mt: 2 }}>
+                  Select one of the date ranges provided by the candidate:
+                </Typography>
+                
+                {(!candidateProfile.preferred_visit_dates || candidateProfile.preferred_visit_dates.length === 0) ? (
+                  <Alert severity="info">
+                    This candidate has not provided any preferred visit dates.
+                  </Alert>
+                ) : (
+                  <Box sx={{ mt: 2 }}>
+                    {candidateProfile.preferred_visit_dates.map((dateRange, index) => {
+                      const formattedRange = formatDateRange(dateRange);
+                      if (!formattedRange) return null;
+                      
+                      return (
+                        <Box 
+                          key={index} 
+                          sx={{ 
+                            p: 2, 
+                            border: '1px solid',
+                            borderColor: selectedDateRange === dateRange ? 'primary.main' : 'divider',
+                            borderRadius: 1,
+                            mb: 2,
+                            cursor: 'pointer',
+                            bgcolor: selectedDateRange === dateRange ? 'action.selected' : 'background.paper'
+                          }}
+                          onClick={() => setSelectedDateRange(dateRange)}
+                        >
+                          <Typography>
+                            Option {index + 1}: {formattedRange}
+                          </Typography>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                )}
+                
+                <Typography variant="body2" paragraph sx={{ mt: 2 }}>
+                  Travel assistance information: {candidateProfile.travel_assistance === 'all' 
+                    ? 'Needs help with ALL travel arrangements' 
+                    : candidateProfile.travel_assistance === 'some'
+                    ? 'Needs help with SOME travel arrangements'
+                    : 'Will book own travel arrangements'}
+                </Typography>
+              </>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseImportDialog}>Cancel</Button>
+            <Button 
+              onClick={handleImportDateRange} 
+              variant="contained"
+              disabled={!selectedDateRange}
+            >
+              Import Selected Date Range
             </Button>
           </DialogActions>
         </Dialog>

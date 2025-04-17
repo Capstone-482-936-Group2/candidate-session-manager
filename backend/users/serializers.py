@@ -1,10 +1,56 @@
 from rest_framework import serializers
-from .models import User
+from .models import User, CandidateProfile
+from django.conf import settings
 
+# Define CandidateProfileSerializer first
+class CandidateProfileSerializer(serializers.ModelSerializer):
+    headshot_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CandidateProfile
+        fields = [
+            'current_title',
+            'current_department',
+            'current_institution',
+            'research_interests',
+            'cell_number',
+            'travel_assistance',
+            'passport_name',
+            'date_of_birth',
+            'country_of_residence',
+            'gender',
+            'gender_custom',
+            'preferred_airport',
+            'frequent_flyer_info',
+            'known_traveler_number',
+            'talk_title',
+            'abstract',
+            'biography',
+            'headshot_url',
+            'videotape_permission',
+            'advertisement_permission',
+            'food_preferences',
+            'dietary_restrictions',
+            'extra_tours',
+            'preferred_faculty',
+            'has_completed_setup',
+            'preferred_visit_dates'
+        ]
+
+    def get_headshot_url(self, obj):
+        if obj.headshot:
+            return obj.headshot.url
+        return None
+
+# Then define UserSerializer that uses it
 class UserSerializer(serializers.ModelSerializer):
+    candidate_profile = CandidateProfileSerializer(read_only=True)
+
     class Meta:
         model = User
-        fields = ['id', 'email', 'username', 'first_name', 'last_name', 'user_type', 'room_number', 'has_completed_setup']
+        fields = ['id', 'email', 'username', 'first_name', 'last_name', 
+                 'user_type', 'room_number', 'has_completed_setup', 
+                 'candidate_profile']
         read_only_fields = ['id']
 
     def to_representation(self, instance):
@@ -22,11 +68,17 @@ class UserSerializer(serializers.ModelSerializer):
             # and only see user_type for non-superadmin users
             if instance.id != request.user.id:
                 if instance.user_type == 'superadmin':
-                    # Hide superadmin users completely from non-superadmins
-                    return None
-                
+                    # Instead of returning None, return limited data
+                    return {
+                        'id': instance.id,
+                        'first_name': instance.first_name,
+                        'last_name': instance.last_name,
+                        'user_type': instance.user_type
+                    }
+            
         return data
 
+# Keep the existing RegisterSerializer and UserUpdateSerializer
 class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User

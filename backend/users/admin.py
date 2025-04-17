@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.utils.translation import gettext_lazy as _
-from .models import User
+from .models import User, CandidateProfile
 
 class CustomUserAdmin(UserAdmin):
     list_display = ('email', 'username', 'first_name', 'last_name', 'user_type', 'is_active', 'date_joined')
@@ -46,3 +46,4 @@ class CustomUserAdmin(UserAdmin):
         super().save_model(request, obj, form, change)
 
 admin.site.register(User, CustomUserAdmin)
+admin.site.register(CandidateProfile)
