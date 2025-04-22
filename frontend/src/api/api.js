@@ -184,9 +184,11 @@ export const facultyAvailabilityAPI = {
   submitAvailability: (availabilityData) => api.post('/faculty-availability/', availabilityData),
   updateAvailability: (id, availabilityData) => api.patch(`/faculty-availability/${id}/`, availabilityData),
   deleteAvailability: (id) => api.delete(`/faculty-availability/${id}/`),
-  importAvailability: (availabilityId) => {
-    console.log("Importing availability with ID:", availabilityId);
-    return api.post(`/faculty-availability/${availabilityId}/import_slots/`, {});
+  importAvailability: (candidateSectionId, availabilityId, options = {}) => {
+    console.log("Importing availability with ID:", availabilityId, "for section:", candidateSectionId);
+    return api.post(`/faculty-availability/${availabilityId}/import_slots/`, {
+      mark_as_imported: options.markAsImported || true
+    });
   },
 };
 

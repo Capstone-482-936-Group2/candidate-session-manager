@@ -36,6 +36,8 @@ class CandidateSection(models.Model):
     needs_transportation = models.BooleanField(default=False)
     arrival_date = models.DateField(null=True, blank=True)
     leaving_date = models.DateField(null=True, blank=True)
+    imported_availability_ids = models.JSONField(default=list, blank=True, null=True, 
+                                                help_text="IDs of faculty availability submissions that have been imported")
     
     def __str__(self):
         return f"{self.title} - {self.candidate.email}"

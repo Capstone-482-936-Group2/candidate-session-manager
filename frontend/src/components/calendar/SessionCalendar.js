@@ -3,14 +3,38 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { Box, Typography, Paper, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
+import { 
+  Box, 
+  Typography, 
+  Paper, 
+  Tooltip, 
+  Dialog, 
+  DialogTitle, 
+  DialogContent, 
+  DialogActions, 
+  Button,
+  IconButton,
+  Avatar,
+  Chip,
+  Divider,
+  useTheme
+} from '@mui/material';
+import {
+  Close as CloseIcon,
+  LocationOn as LocationIcon,
+  Description as DescriptionIcon,
+  Group as GroupIcon,
+  PersonAdd as PersonAddIcon,
+  PersonRemove as PersonRemoveIcon
+} from '@mui/icons-material';
 import './SessionCalendar.css';
 
 const SessionCalendar = ({ candidateSections, currentUser, onRegister, onUnregister }) => {
-  // Add state for dialog
+  const theme = useTheme();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogAction, setDialogAction] = useState(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState(null);
 
   // Process candidate sections into calendar events
   const events = candidateSections.flatMap(section => {
@@ -44,8 +68,8 @@ const SessionCalendar = ({ candidateSections, currentUser, onRegister, onUnregis
           title: `${section.candidate?.first_name || ''} ${section.candidate?.last_name || ''}`,
           start: slot.start_time,
           end: slot.end_time || null,
-          backgroundColor: isFull ? '#2196f3' : '#4caf50',  // Blue if full, green if available
-          borderColor: isRegistered ? '#ff9800' : (isFull ? '#1976d2' : '#388e3c'),
+          backgroundColor: isRegistered ? theme.palette.secondary.main : (isFull ? '#9e9e9e' : theme.palette.primary.main),
+          borderColor: isRegistered ? theme.palette.secondary.dark : (isFull ? '#757575' : theme.palette.primary.dark),
           textColor: 'white',
           classNames: [
             isFull ? 'full-slot' : 'available-slot',
@@ -70,32 +94,39 @@ const SessionCalendar = ({ candidateSections, currentUser, onRegister, onUnregis
     const { isFull, isRegistered } = info.event.extendedProps;
     
     // Apply styles directly to DOM element to ensure they work in month view
-    if (isFull) {
-      info.el.style.backgroundColor = '#2196f3'; // Blue for full slots
+    if (isRegistered) {
+      info.el.style.backgroundColor = theme.palette.secondary.main;
+      info.el.style.borderLeft = `4px solid ${theme.palette.secondary.dark}`;
+    } else if (isFull) {
+      info.el.style.backgroundColor = '#9e9e9e';
+      info.el.style.opacity = '0.8';
     } else {
-      info.el.style.backgroundColor = '#4caf50'; // Green for available slots
+      info.el.style.backgroundColor = theme.palette.primary.main;
+      info.el.style.borderLeft = `4px solid ${theme.palette.primary.dark}`;
     }
     
-    if (isRegistered) {
-      info.el.style.borderLeft = '4px solid #ff9800'; // Orange border for registered slots
-      info.el.style.borderRight = '4px solid #ff9800';
-      info.el.style.borderTop = '1px solid #ff9800';
-      info.el.style.borderBottom = '1px solid #ff9800';
-    }
+    // Add rounded corners
+    info.el.style.borderRadius = '4px';
+    // Add subtle shadow
+    info.el.style.boxShadow = '0 1px 3px rgba(0,0,0,0.12)';
   };
 
   const handleEventClick = (info) => {
     const { slot, isRegistered, isFull } = info.event.extendedProps;
     
+    // Store the event for the dialog
+    setSelectedEvent(info.event);
+    setSelectedTimeSlot(slot);
+    
     if (isRegistered) {
-      // Instead of confirm, open dialog
       setDialogAction('unregister');
-      setSelectedTimeSlot(slot);
       setDialogOpen(true);
     } else if (!isFull) {
-      // Instead of confirm, open dialog
       setDialogAction('register');
-      setSelectedTimeSlot(slot);
+      setDialogOpen(true);
+    } else {
+      // Just show details if the slot is full and user isn't registered
+      setDialogAction('view');
       setDialogOpen(true);
     }
   };
@@ -111,50 +142,57 @@ const SessionCalendar = ({ candidateSections, currentUser, onRegister, onUnregis
 
   const handleDialogClose = () => {
     setDialogOpen(false);
+    setSelectedEvent(null);
+    setSelectedTimeSlot(null);
   };
 
   const renderEventContent = (eventInfo) => {
-    // Event-specific data - note: section is unused but we'll keep it for potential future use
     const { slot, attendees, isFull, isRegistered } = eventInfo.event.extendedProps;
     
     return (
-      <Tooltip title={
-        <Box>
-          <Typography variant="subtitle2">{eventInfo.event.title}</Typography>
-          {slot.location && <Typography variant="body2">Location: {slot.location}</Typography>}
-          {slot.description && <Typography variant="body2">{slot.description}</Typography>}
-          <Typography variant="body2">
-            {isFull ? 'Full' : `${attendees.length}/${slot.max_attendees} slots filled`}
-          </Typography>
-          {attendees.length > 0 && (
-            <>
-              <Typography variant="body2" sx={{ mt: 1 }}>Attendees:</Typography>
-              {attendees.map(a => (
-                <Typography key={a.id} variant="body2" sx={{ pl: 1 }}>
-                  • {a.user?.first_name || ''} {a.user?.last_name || ''}
-                </Typography>
-              ))}
-            </>
-          )}
-          {isRegistered && <Typography variant="body2" sx={{ fontWeight: 'bold', mt: 1 }}>You are registered</Typography>}
-        </Box>
-      }>
-        <Box>
-          <Typography variant="caption" sx={{ fontWeight: 'bold' }}>
-            {eventInfo.timeText} - {eventInfo.event.title}
-          </Typography>
-          <Typography variant="caption" sx={{ display: 'block' }}>
-            {isFull ? 'Full' : `${attendees.length}/${slot.max_attendees}`}
-            {isRegistered && ' ✓'}
-          </Typography>
-        </Box>
-      </Tooltip>
+      <Box sx={{ 
+        padding: '2px 4px', 
+        overflow: 'hidden', 
+        whiteSpace: 'nowrap', 
+        textOverflow: 'ellipsis',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center'
+      }}>
+        <Typography variant="caption" sx={{ 
+          fontWeight: 600, 
+          display: 'block', 
+          fontSize: '0.8rem',
+          lineHeight: 1.2
+        }}>
+          {eventInfo.timeText && `${eventInfo.timeText}`}
+        </Typography>
+        <Typography variant="caption" sx={{ 
+          display: 'block',
+          fontWeight: 500,
+          fontSize: '0.75rem',
+          lineHeight: 1.2
+        }}>
+          {eventInfo.event.title}
+          {isRegistered && ' ✓'}
+        </Typography>
+      </Box>
     );
   };
 
   return (
     <>
-      <Paper sx={{ p: 2, height: 'calc(100vh - 200px)', overflow: 'hidden' }}>
+      <Paper 
+        elevation={0}
+        sx={{ 
+          height: 'calc(100vh - 200px)', 
+          overflow: 'hidden',
+          borderRadius: 2,
+          border: '1px solid',
+          borderColor: 'divider'
+        }}
+      >
         <FullCalendar
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
           headerToolbar={{
@@ -168,32 +206,167 @@ const SessionCalendar = ({ candidateSections, currentUser, onRegister, onUnregis
           eventClick={handleEventClick}
           eventDidMount={eventDidMount}
           height="100%"
+          slotLabelFormat={{
+            hour: 'numeric',
+            minute: '2-digit',
+            meridiem: 'short'
+          }}
+          allDaySlot={false}
+          slotDuration="00:30:00"
+          dayHeaderFormat={{ weekday: 'short', day: 'numeric' }}
+          stickyHeaderDates={true}
+          nowIndicator={true}
         />
       </Paper>
 
-      {/* Confirmation Dialog */}
+      {/* Enhanced Event Dialog */}
       <Dialog
         open={dialogOpen}
         onClose={handleDialogClose}
-        aria-labelledby="alert-dialog-title"
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          elevation: 5,
+          sx: { borderRadius: 2 }
+        }}
       >
-        <DialogTitle id="alert-dialog-title">
-          {dialogAction === 'register' ? 'Register for Time Slot' : 'Unregister from Time Slot'}
-        </DialogTitle>
-        <DialogContent>
-          <Typography>
-            {dialogAction === 'register' 
-              ? 'Do you want to register for this time slot?' 
-              : 'Do you want to unregister from this time slot?'}
+        <DialogTitle sx={{ 
+          px: 3, 
+          pt: 3, 
+          pb: 1,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <Typography variant="h5" fontWeight={600}>
+            {selectedEvent && selectedEvent.title}
           </Typography>
+          <IconButton onClick={handleDialogClose} size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        
+        <DialogContent sx={{ px: 3, py: 2 }}>
+          {selectedTimeSlot && (
+            <>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle1" fontWeight={500} color="primary.main">
+                  {selectedTimeSlot.start_time && new Date(selectedTimeSlot.start_time).toLocaleString(undefined, {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit'
+                  })}
+                </Typography>
+                
+                <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, mb: 0.5 }}>
+                  <Chip 
+                    label={selectedEvent?.extendedProps?.isFull ? 'FULL' : 'AVAILABLE'} 
+                    size="small" 
+                    color={selectedEvent?.extendedProps?.isFull ? 'default' : 'success'} 
+                    sx={{ mr: 1 }}
+                  />
+                  {selectedEvent?.extendedProps?.isRegistered && (
+                    <Chip 
+                      label="REGISTERED" 
+                      size="small" 
+                      color="secondary"
+                    />
+                  )}
+                </Box>
+              </Box>
+              
+              {selectedTimeSlot.location && (
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+                  <LocationIcon fontSize="small" sx={{ color: 'text.secondary', mr: 1, mt: 0.3 }} />
+                  <Typography>{selectedTimeSlot.location}</Typography>
+                </Box>
+              )}
+              
+              {selectedTimeSlot.description && (
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+                  <DescriptionIcon fontSize="small" sx={{ color: 'text.secondary', mr: 1, mt: 0.3 }} />
+                  <Typography>{selectedTimeSlot.description}</Typography>
+                </Box>
+              )}
+              
+              <Divider sx={{ my: 2 }} />
+              
+              <Box sx={{ mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <GroupIcon fontSize="small" sx={{ color: 'text.secondary', mr: 1 }} />
+                  <Typography variant="subtitle1" fontWeight={500}>
+                    Attendees ({selectedEvent?.extendedProps?.attendees.length || 0}/{selectedTimeSlot.max_attendees})
+                  </Typography>
+                </Box>
+                
+                {selectedEvent?.extendedProps?.attendees.length > 0 ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, ml: 4 }}>
+                    {selectedEvent.extendedProps.attendees.map(attendee => (
+                      <Box key={attendee.id} sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Avatar 
+                          sx={{ 
+                            width: 28, 
+                            height: 28, 
+                            bgcolor: 'primary.light',
+                            fontSize: '0.875rem',
+                            mr: 1
+                          }}
+                        >
+                          {attendee.user?.first_name?.[0] || '?'}
+                        </Avatar>
+                        <Typography>
+                          {attendee.user?.first_name || ''} {attendee.user?.last_name || ''}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ ml: 4 }}>
+                    No attendees yet
+                  </Typography>
+                )}
+              </Box>
+            </>
+          )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleDialogClose} color="primary">
-            Cancel
-          </Button>
-          <Button onClick={handleDialogConfirm} color="primary" autoFocus>
-            {dialogAction === 'register' ? 'Register' : 'Unregister'}
-          </Button>
+        
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          {dialogAction === 'register' && (
+            <Button 
+              onClick={handleDialogConfirm} 
+              variant="contained" 
+              color="primary"
+              startIcon={<PersonAddIcon />}
+              sx={{ borderRadius: 2, py: 1, px: 2 }}
+            >
+              Register for This Session
+            </Button>
+          )}
+          
+          {dialogAction === 'unregister' && (
+            <Button 
+              onClick={handleDialogConfirm} 
+              variant="outlined" 
+              color="error"
+              startIcon={<PersonRemoveIcon />}
+              sx={{ borderRadius: 2, py: 1, px: 2 }}
+            >
+              Unregister from This Session
+            </Button>
+          )}
+          
+          {dialogAction === 'view' && (
+            <Button 
+              onClick={handleDialogClose} 
+              variant="outlined"
+              sx={{ borderRadius: 2, py: 1, px: 2 }}
+            >
+              Close
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </>

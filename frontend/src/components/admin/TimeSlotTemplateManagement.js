@@ -3,12 +3,13 @@ import {
   Container, Typography, Box, Grid, Card, CardContent, CardActions,
   Button, TextField, Dialog, DialogTitle, DialogContent, DialogActions,
   Snackbar, Alert, FormControlLabel, Switch, IconButton, Divider,
-  FormControl, InputLabel, Select, MenuItem, Autocomplete
+  FormControl, InputLabel, Select, MenuItem, Autocomplete, CircularProgress, Paper
 } from '@mui/material';
 import { TimePicker } from '@mui/x-date-pickers/TimePicker';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { timeSlotTemplatesAPI, locationTypesAPI, locationsAPI } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme, alpha } from '@mui/material/styles';
 
 const TimeSlotTemplateManagement = () => {
   const [templates, setTemplates] = useState([]);
@@ -35,6 +36,7 @@ const TimeSlotTemplateManagement = () => {
   const [locationTypes, setLocationTypes] = useState([]);
   const [locations, setLocations] = useState([]);
   const [filteredLocations, setFilteredLocations] = useState([]);
+  const theme = useTheme();
 
   useEffect(() => {
     fetchTemplates();
@@ -287,85 +289,170 @@ const TimeSlotTemplateManagement = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4">Time Slot Templates</Typography>
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h5" fontWeight={600} color="primary.dark">
+          Time Slot Templates
+        </Typography>
         <Button 
           variant="contained" 
-          startIcon={<AddIcon />}
+          startIcon={<AddIcon />} 
           onClick={handleOpenDialog}
+          sx={{ 
+            textTransform: 'none',
+            borderRadius: 2,
+            py: 1,
+            px: 2,
+            fontWeight: 500
+          }}
         >
-          Create Template
+          Add Template
         </Button>
       </Box>
 
       {loading ? (
-        <Typography>Loading templates...</Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : templates.length === 0 ? (
+        <Paper 
+          sx={{ 
+            p: 4, 
+            textAlign: 'center',
+            borderRadius: 2,
+            bgcolor: alpha(theme.palette.info.main, 0.05),
+            border: '1px dashed',
+            borderColor: 'divider'
+          }}
+        >
+          <Typography variant="h6" fontWeight={600} gutterBottom>
+            No Templates Available
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Create your first time slot template using the "Add Template" button.
+          </Typography>
+        </Paper>
       ) : (
         <Grid container spacing={3}>
-          {templates.length > 0 ? (
-            templates.map(template => (
-              <Grid item xs={12} md={6} lg={4} key={template.id}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6">{template.name}</Typography>
-                    {template.description && (
-                      <Typography variant="body2" color="text.secondary">
-                        {template.description}
-                      </Typography>
-                    )}
-                    
-                    {template.has_end_time && (
-                      <Box sx={{ mt: 1 }}>
-                        <Typography variant="body2">
-                          Duration: {template.duration_minutes} min
-                        </Typography>
-                        <Typography variant="body2">
-                          Max Attendees: {template.max_attendees}
-                        </Typography>
-                      </Box>
-                    )}
-                    
-                    <Typography variant="body2">
-                      Start Time: {template.start_time || 'Not set'}
+          {templates.map(template => (
+            <Grid item xs={12} md={6} key={template.id}>
+              <Card 
+                elevation={2} 
+                sx={{ 
+                  borderRadius: 2,
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  transition: 'all 0.2s ease',
+                  overflow: 'hidden',
+                  '&:hover': {
+                    boxShadow: theme.shadows[6],
+                    transform: 'translateY(-2px)'
+                  }
+                }}
+              >
+                <Box sx={{ 
+                  bgcolor: alpha(theme.palette.primary.main, 0.05),
+                  px: 3,
+                  py: 2
+                }}>
+                  <Typography variant="h6" fontWeight={600}>
+                    {template.name}
+                  </Typography>
+                </Box>
+                
+                <CardContent sx={{ flexGrow: 1, p: 3 }}>
+                  {template.description && (
+                    <Typography variant="body2" color="text.secondary" paragraph>
+                      {template.description}
                     </Typography>
-                    <Typography variant="body2">
-                      Has End Time: {template.has_end_time ? 'Yes' : 'No'}
-                    </Typography>
-                    <Typography variant="body2">
-                      Visible: {template.is_visible ? 'Yes' : 'No'}
-                    </Typography>
-                    {template.location && (
-                      <Typography variant="body2">Location: {template.location}</Typography>
-                    )}
-                  </CardContent>
-                  <CardActions>
-                    <Button 
-                      size="small" 
-                      startIcon={<EditIcon />}
-                      onClick={() => handleOpenEditDialog(template)}
+                  )}
+                  
+                  <Box sx={{ mb: 2 }}>
+                    <Typography 
+                      variant="subtitle2" 
+                      fontWeight={600} 
+                      color="primary.dark" 
+                      gutterBottom
                     >
-                      Edit
-                    </Button>
-                    <Button 
-                      size="small" 
-                      color="error"
-                      startIcon={<DeleteIcon />}
-                      onClick={() => handleDeleteTemplate(template.id)}
+                      Details:
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          <strong>Start Time:</strong> {template.start_time ? template.start_time : 'Not set'}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          <strong>Duration:</strong> {template.duration_minutes} minutes
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          <strong>Max Attendees:</strong> {template.max_attendees}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          <strong>Visible:</strong> {template.is_visible ? 'Yes' : 'No'}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                  
+                  <Box>
+                    <Typography 
+                      variant="subtitle2" 
+                      fontWeight={600} 
+                      color="primary.dark" 
+                      gutterBottom
                     >
-                      Delete
-                    </Button>
-                  </CardActions>
-                </Card>
-              </Grid>
-            ))
-          ) : (
-            <Grid item xs={12}>
-              <Typography variant="h6" textAlign="center">
-                No templates found. Create one to get started!
-              </Typography>
+                      Location:
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {template.use_location_type
+                        ? `Location Type: ${locationTypes.find(t => t.id === template.location_type)?.name || 'Unknown'}`
+                        : template.custom_location
+                          ? `Custom: ${template.custom_location}`
+                          : template.location
+                            ? `Location: ${locations.find(l => l.id === template.location)?.name || 'Unknown'}`
+                            : 'No location specified'}
+                    </Typography>
+                  </Box>
+                </CardContent>
+                
+                <Divider />
+                
+                <CardActions sx={{ p: 2 }}>
+                  <Button 
+                    startIcon={<EditIcon />} 
+                    onClick={() => handleOpenEditDialog(template)}
+                    sx={{ 
+                      textTransform: 'none',
+                      borderRadius: 1.5,
+                      fontWeight: 500
+                    }}
+                  >
+                    Edit
+                  </Button>
+                  <Button 
+                    startIcon={<DeleteIcon />} 
+                    color="error"
+                    onClick={() => handleDeleteTemplate(template.id)}
+                    sx={{ 
+                      ml: 1,
+                      textTransform: 'none',
+                      borderRadius: 1.5,
+                      fontWeight: 500
+                    }}
+                  >
+                    Delete
+                  </Button>
+                </CardActions>
+              </Card>
             </Grid>
-          )}
+          ))}
         </Grid>
       )}
 
@@ -708,15 +795,19 @@ const TimeSlotTemplateManagement = () => {
       {/* Snackbar for notifications */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={6000}
+        autoHideDuration={5000}
         onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity}
+          sx={{ borderRadius: 2 }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Container>
+    </Box>
   );
 };
 

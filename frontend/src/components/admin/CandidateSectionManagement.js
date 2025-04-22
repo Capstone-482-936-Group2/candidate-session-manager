@@ -90,6 +90,9 @@ const CandidateSectionManagement = () => {
   const [candidateProfile, setCandidateProfile] = useState(null);
   const [selectedDateRange, setSelectedDateRange] = useState(null);
 
+  // Add this with your other state variables
+  const [importedAvailabilityIds, setImportedAvailabilityIds] = useState({});
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -108,6 +111,13 @@ const CandidateSectionManagement = () => {
           ...section,
           session: typeof section.session === 'object' ? section.session : { id: parseInt(seasonId) }
         }));
+        
+        // Initialize imported availability tracking
+        const initialImportedIds = {};
+        processedSections.forEach(section => {
+          initialImportedIds[section.id] = section.imported_availability_ids || [];
+        });
+        setImportedAvailabilityIds(initialImportedIds);
         
         console.log('Processed candidate sections:', processedSections);
         setCandidateSections(processedSections);
@@ -427,40 +437,31 @@ const CandidateSectionManagement = () => {
   };
 
   const handleAddTimeSlots = async () => {
-    if (!selectedSection) return;
-    
     try {
-      // Create time slots one by one
-      const createdSlots = [];
+      // Check for time slot overlaps
+      const { hasOverlap, message } = checkForOverlaps(timeSlots, selectedSection.time_slots || []);
       
-      for (const slot of timeSlots) {
-        // Use exact time entered
-        const timeSlotData = {
-          candidate_section: selectedSection.id,
-          start_time: slot.start_time.toISOString().slice(0, 19),
-          end_time: slot.noEndTime ? null : slot.end_time.toISOString().slice(0, 19),
-          max_attendees: parseInt(slot.max_attendees),
-          location: slot.location || '',
-          description: slot.description || '',
-          is_visible: slot.noEndTime ? false : (slot.is_visible !== undefined ? slot.is_visible : true)
-        };
-        
-        console.log('Creating time slot:', timeSlotData);
-        const response = await timeSlotsAPI.createTimeSlot(timeSlotData);
-        createdSlots.push(response.data);
+      if (hasOverlap) {
+        setSnackbar({
+          open: true,
+          message: message,
+          severity: 'error'
+        });
+        return;
       }
       
-      // Refresh the candidate sections data to include new time slots
-      const sectionsResponse = await candidateSectionsAPI.getCandidateSectionsBySeason(seasonId);
-      setCandidateSections(sectionsResponse.data);
+      // Process the time slots as before
+      const formattedTimeSlots = timeSlots.map(slot => ({
+        start_time: formatDateToUTC(slot.start_time),
+        end_time: slot.noEndTime ? null : (slot.end_time ? formatDateToUTC(slot.end_time) : null),
+        max_attendees: slot.max_attendees,
+        location: slot.location || '',
+        description: slot.description || '',
+        is_visible: slot.is_visible,
+        candidate_section: selectedSection.id
+      }));
       
-      // Close dialog and show success message
-      handleCloseTimeSlotDialog();
-      setSnackbar({
-        open: true,
-        message: `Successfully added ${createdSlots.length} time slots!`,
-        severity: 'success'
-      });
+      // Rest of the existing function...
     } catch (err) {
       console.error('Error adding time slots:', err);
       setSnackbar({
@@ -579,9 +580,23 @@ const CandidateSectionManagement = () => {
   };
 
   const handleUpdateTimeSlot = async () => {
-    if (!selectedTimeSlot) return;
-
     try {
+      // Check for overlaps
+      const { hasOverlap, message } = checkForOverlaps(
+        [timeSlotForm], 
+        selectedSection.time_slots || [],
+        selectedTimeSlot.id
+      );
+      
+      if (hasOverlap) {
+        setSnackbar({
+          open: true,
+          message: message,
+          severity: 'error'
+        });
+        return;
+      }
+      
       const updatedData = {
         start_time: timeSlotForm.start_time.toISOString().slice(0, 19),
         end_time: timeSlotForm.noEndTime ? null : timeSlotForm.end_time.toISOString().slice(0, 19),
@@ -802,10 +817,15 @@ const CandidateSectionManagement = () => {
   // Add this function to fetch faculty availability for a candidate section
   const fetchFacultyAvailability = async (sectionId) => {
     try {
-      setLoading(true);
       const response = await facultyAvailabilityAPI.getAvailabilityByCandidate(sectionId);
-      console.log("Faculty availability data:", response.data);
-      setFacultyAvailability(response.data);
+      
+      // Filter out already imported availability submissions
+      const importedIds = importedAvailabilityIds[sectionId] || [];
+      const filteredAvailability = response.data.filter(
+        submission => !importedIds.includes(submission.id)
+      );
+      
+      setFacultyAvailability(filteredAvailability);
     } catch (err) {
       console.error('Error fetching faculty availability:', err);
       setSnackbar({
@@ -813,8 +833,6 @@ const CandidateSectionManagement = () => {
         message: 'Failed to load faculty availability',
         severity: 'error'
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -834,28 +852,56 @@ const CandidateSectionManagement = () => {
   // Add a function to import faculty availability as time slots
   const handleImportAvailability = async (availabilityId) => {
     try {
-      setLoading(true);
-      const response = await facultyAvailabilityAPI.importAvailability(availabilityId);
+      const response = await facultyAvailabilityAPI.importAvailability(
+        selectedCandidateSection.id,
+        availabilityId,
+        { markAsImported: true }
+      );
+      
+      // Mark this availability as imported
+      setImportedAvailabilityIds(prev => ({
+        ...prev,
+        [selectedCandidateSection.id]: [
+          ...(prev[selectedCandidateSection.id] || []),
+          availabilityId
+        ]
+      }));
+      
+      // Update the faculty availability list to remove the imported one
+      setFacultyAvailability(prev => 
+        prev.filter(item => item.id !== availabilityId)
+      );
+      
+      // IMPORTANT: Fetch the updated candidate section with new time slots
+      const updatedSectionResponse = await candidateSectionsAPI.getCandidateSectionById(
+        selectedCandidateSection.id
+      );
+      
+      // Update the candidateSections state with the newly fetched data
+      setCandidateSections(prevSections => {
+        return prevSections.map(section => {
+          if (section.id === selectedCandidateSection.id) {
+            return updatedSectionResponse.data;
+          }
+          return section;
+        });
+      });
+      
+      // Also update the selectedCandidateSection so the dialog shows updated data
+      setSelectedCandidateSection(updatedSectionResponse.data);
       
       setSnackbar({
         open: true,
-        message: response.data.message,
+        message: 'Faculty availability imported successfully',
         severity: 'success'
       });
-      
-      // Refresh time slots after import
-      await fetchCandidateSections();
-      handleCloseAvailabilityDialog();
-      
     } catch (err) {
       console.error('Error importing faculty availability:', err);
       setSnackbar({
         open: true,
-        message: 'Failed to import faculty availability: ' + (err.response?.data?.detail || err.message),
+        message: 'Failed to import faculty availability',
         severity: 'error'
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -936,6 +982,55 @@ const CandidateSectionManagement = () => {
     if (!dateRange || !dateRange.startDate || !dateRange.endDate) return null;
     
     return `${format(new Date(dateRange.startDate), 'MMMM d, yyyy')} to ${format(new Date(dateRange.endDate), 'MMMM d, yyyy')}`;
+  };
+
+  // Add this helper function after the existing ones
+  const checkForOverlaps = (newTimeSlots, existingTimeSlots, currentTimeSlotId = null) => {
+    // Filter out the current time slot being edited (if any)
+    const otherTimeSlots = existingTimeSlots.filter(slot => 
+      !currentTimeSlotId || slot.id !== currentTimeSlotId
+    );
+    
+    // Check each new time slot against existing ones
+    for (const newSlot of newTimeSlots) {
+      const newStartTime = new Date(newSlot.start_time).getTime();
+      const newEndTime = newSlot.noEndTime || !newSlot.end_time 
+        ? null 
+        : new Date(newSlot.end_time).getTime();
+      
+      for (const existingSlot of otherTimeSlots) {
+        const existingStartTime = new Date(existingSlot.start_time).getTime();
+        const existingEndTime = existingSlot.noEndTime || !existingSlot.end_time 
+          ? null 
+          : new Date(existingSlot.end_time).getTime();
+        
+        // Case 1: Both slots have end times - check for any overlap
+        if (newEndTime && existingEndTime) {
+          if (
+            (newStartTime >= existingStartTime && newStartTime < existingEndTime) || // New start is within existing slot
+            (newEndTime > existingStartTime && newEndTime <= existingEndTime) || // New end is within existing slot
+            (newStartTime <= existingStartTime && newEndTime >= existingEndTime) // New slot completely encompasses existing slot
+          ) {
+            return {
+              hasOverlap: true,
+              message: `Time slot overlaps with existing slot at ${format(existingStartTime, 'MMM d, yyyy h:mm a')}`
+            };
+          }
+        }
+        // Case 2: One or both slots have no end time - only check start time collision
+        else {
+          // If slots start at the exact same time, they overlap
+          if (newStartTime === existingStartTime) {
+            return {
+              hasOverlap: true,
+              message: `Time slot starts at the same time as another slot (${format(existingStartTime, 'MMM d, yyyy h:mm a')})`
+            };
+          }
+        }
+      }
+    }
+    
+    return { hasOverlap: false };
   };
 
   if (loading) return (

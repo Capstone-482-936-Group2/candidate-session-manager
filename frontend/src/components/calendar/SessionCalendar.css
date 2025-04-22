@@ -25,3 +25,100 @@
   border-color: #ff9800 !important;
   border-width: 2px !important;
 }
+
+/* Calendar container styling */
+.fc {
+  font-family: 'Roboto', 'Helvetica', sans-serif;
+}
+
+/* Header styling */
+.fc-toolbar-title {
+  font-size: 1.5rem !important;
+  font-weight: 600 !important;
+  color: #333;
+}
+
+.fc-today-button {
+  text-transform: none !important;
+  font-weight: 500 !important;
+  border-radius: 6px !important;
+}
+
+.fc-button-primary {
+  text-transform: none !important;
+  font-weight: 500 !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+}
+
+/* Day headers */
+.fc-col-header-cell {
+  padding: 8px 0 !important;
+  background-color: #f8f9fa !important;
+  font-weight: 600 !important;
+}
+
+/* Time slots */
+.fc-timegrid-slot {
+  height: 40px !important; 
+}
+
+.fc-timegrid-slot-lane {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Today highlight */
+.fc .fc-day-today {
+  background-color: rgba(80, 0, 0, 0.04) !important;
+}
+
+/* Events */
+.fc-event {
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  border-radius: 4px !important;
+}
+
+.fc-event:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Time indicator line */
+.fc-timegrid-now-indicator-line {
+  border-color: #d32f2f !important;
+  border-width: 2px !important;
+  z-index: 10;
+}
+
+.fc-timegrid-now-indicator-arrow {
+  border-color: #d32f2f !important;
+  border-width: 5px !important;
+}
+
+/* View buttons */
+.fc-button-group .fc-button {
+  padding: 6px 12px !important;
+  font-size: 0.875rem !important;
+}
+
+.fc-button-active {
+  font-weight: 600 !important;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 600px) {
+  .fc-toolbar {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .fc-toolbar-title {
+    font-size: 1.25rem !important;
+  }
+  
+  .fc-view-harness {
+    height: auto !important;
+    min-height: 400px;
+  }
+}

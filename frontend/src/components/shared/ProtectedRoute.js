@@ -41,6 +41,11 @@ const ProtectedRoute = ({ requiredRole }) => {
     }
   }
   
+  // If user is a candidate and trying to access dashboard, redirect to forms
+  if (currentUser.user_type === 'candidate' && window.location.pathname === '/dashboard') {
+    return <Navigate to="/forms" replace />;
+  }
+  
   return <Outlet />;
 };
 

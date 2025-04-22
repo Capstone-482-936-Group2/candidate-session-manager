@@ -29,7 +29,8 @@ class CandidateSectionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'description', 'location', 
             'candidate', 'time_slots', 'created_at', 
-            'needs_transportation', 'session', 'arrival_date', 'leaving_date'
+            'needs_transportation', 'session', 'arrival_date', 
+            'leaving_date', 'imported_availability_ids'
         ]
         read_only_fields = ['created_at']
 

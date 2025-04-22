@@ -1,14 +1,42 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Paper, Typography, Grid, Button, TextField, 
-  Box, Card, CardContent, CardActions, Divider,
-  Dialog, DialogActions, DialogContent, DialogTitle, Snackbar, Alert,
-  List, ListItem, ListItemText, ListItemSecondaryAction, IconButton
+  Paper, 
+  Typography, 
+  Grid, 
+  Button, 
+  TextField, 
+  Box, 
+  Card, 
+  CardContent, 
+  CardActions, 
+  Divider,
+  Dialog, 
+  DialogActions, 
+  DialogContent, 
+  DialogTitle, 
+  Snackbar, 
+  Alert,
+  List, 
+  ListItem, 
+  ListItemText, 
+  ListItemSecondaryAction, 
+  IconButton,
+  useTheme,
+  alpha,
+  CircularProgress,
+  Tooltip
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { Add as AddIcon, Delete as DeleteIcon, People as PeopleIcon } from '@mui/icons-material';
+import { 
+  Add as AddIcon, 
+  Delete as DeleteIcon, 
+  People as PeopleIcon,
+  CalendarMonth as CalendarIcon,
+  DateRange as DateRangeIcon,
+  Settings as SettingsIcon
+} from '@mui/icons-material';
 import { format, parseISO } from 'date-fns';
 import { seasonsAPI, candidateSectionsAPI } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
@@ -21,6 +49,7 @@ const RecruitingSeasonManagement = () => {
   const [error, setError] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const theme = useTheme();
 
   // Form states
   const [seasonForm, setSeasonForm] = useState({
@@ -214,153 +243,289 @@ const RecruitingSeasonManagement = () => {
 
   if (loading) {
     return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography>Loading recruiting seasons...</Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+        <CircularProgress color="primary" />
       </Box>
     );
   }
 
   if (error) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">{error}</Alert>
-      </Box>
+      <Alert 
+        severity="error" 
+        sx={{ 
+          borderRadius: 2,
+          mt: 2,
+          mb: 2
+        }}
+      >
+        {error}
+      </Alert>
     );
   }
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
-      <Box sx={{ p: 3 }}>
+      <Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4">Recruiting Season Management</Typography>
+          <Typography variant="h5" fontWeight={600} color="primary.dark">
+            Recruiting Seasons
+          </Typography>
           <Button 
             variant="contained" 
             startIcon={<AddIcon />}
             onClick={handleOpenDialog}
+            sx={{ 
+              borderRadius: 2,
+              textTransform: 'none',
+              px: 2,
+              py: 1,
+              fontWeight: 500
+            }}
           >
             Add New Season
           </Button>
         </Box>
         
         {seasons.length === 0 ? (
-          <Paper sx={{ p: 3, textAlign: 'center' }}>
-            <Typography variant="h6">No Recruiting Seasons</Typography>
-            <Typography variant="body2" color="textSecondary">
+          <Paper 
+            sx={{ 
+              p: 4, 
+              textAlign: 'center', 
+              borderRadius: 2,
+              bgcolor: alpha(theme.palette.info.main, 0.05),
+              border: '1px dashed',
+              borderColor: 'divider'
+            }}
+          >
+            <Typography variant="h6" fontWeight={600} gutterBottom>
+              No Recruiting Seasons
+            </Typography>
+            <Typography variant="body1" color="text.secondary" paragraph>
               Create your first recruiting season using the "Add New Season" button.
             </Typography>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={handleOpenDialog}
+              sx={{ 
+                mt: 1,
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 500
+              }}
+            >
+              Create Season
+            </Button>
           </Paper>
         ) : (
           <Grid container spacing={3}>
-            {seasons.map(season => (
-              <Grid item xs={12} md={6} key={season.id}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h5">{season.title}</Typography>
-                    <Typography variant="subtitle1" color="textSecondary" gutterBottom>
-                      {format(parseISO(season.start_date), 'MMM d, yyyy')} - {format(parseISO(season.end_date), 'MMM d, yyyy')}
-                    </Typography>
-                    <Typography variant="body2" paragraph>
-                      {season.description}
-                    </Typography>
-                    
-                    <Divider sx={{ my: 2 }} />
-                    
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <PeopleIcon sx={{ mr: 1 }} />
-                      <Typography>
-                        {getCandidateSectionCount(season.id)} Candidate Section{getCandidateSectionCount(season.id) !== 1 ? 's' : ''}
+            {seasons.map(season => {
+              const candidateCount = getCandidateSectionCount(season.id);
+              return (
+                <Grid item xs={12} sm={6} md={4} key={season.id}>
+                  <Card 
+                    elevation={2}
+                    sx={{ 
+                      borderRadius: 2,
+                      overflow: 'hidden',
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        boxShadow: theme.shadows[4],
+                        transform: 'translateY(-2px)'
+                      }
+                    }}
+                  >
+                    <Box sx={{ 
+                      bgcolor: alpha(theme.palette.primary.main, 0.05),
+                      px: 3,
+                      py: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      borderBottom: '1px solid',
+                      borderColor: 'divider'
+                    }}>
+                      <CalendarIcon sx={{ color: 'primary.main', mr: 1.5, fontSize: '1.75rem' }} />
+                      <Typography variant="h6" component="h2" fontWeight={600} sx={{ flexGrow: 1 }}>
+                        {season.title}
                       </Typography>
+                      <Tooltip title="Delete Season">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteSeason(season.id)}
+                          sx={{ 
+                            ml: 1,
+                            '&:hover': { bgcolor: alpha(theme.palette.error.main, 0.1) }
+                          }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     </Box>
-                  </CardContent>
-                  <CardActions>
-                    <Button 
-                      size="small" 
-                      component={Link} 
-                      to={`/admin-dashboard/season/${season.id}/candidates`}
-                    >
-                      Manage Candidates
-                    </Button>
-                    <Button 
-                      size="small" 
-                      color="error"
-                      onClick={() => handleDeleteSeason(season.id)}
-                    >
-                      Delete Season
-                    </Button>
-                  </CardActions>
-                </Card>
-              </Grid>
-            ))}
+                    
+                    <CardContent sx={{ flexGrow: 1, p: 3 }}>
+                      <Typography variant="body2" sx={{ mb: 2 }}>
+                        {season.description || "No description provided."}
+                      </Typography>
+                      
+                      <Box sx={{ 
+                        bgcolor: alpha(theme.palette.info.main, 0.1),
+                        borderRadius: 1.5,
+                        p: 1.5,
+                        mb: 2,
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}>
+                        <DateRangeIcon color="info" sx={{ mr: 1.5 }} />
+                        <Box>
+                          <Typography variant="caption" fontWeight={600} color="info.dark">
+                            SEASON DURATION
+                          </Typography>
+                          <Typography variant="body2">
+                            {season.start_date ? format(parseISO(season.start_date), 'MMM d, yyyy') : 'No start date'} - 
+                            {season.end_date ? format(parseISO(season.end_date), 'MMM d, yyyy') : 'No end date'}
+                          </Typography>
+                        </Box>
+                      </Box>
+                      
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <PeopleIcon sx={{ mr: 1, color: 'text.secondary' }} fontSize="small" />
+                        <Typography variant="body2" color="text.secondary">
+                          {candidateCount} {candidateCount === 1 ? 'Candidate' : 'Candidates'}
+                        </Typography>
+                      </Box>
+                    </CardContent>
+                    
+                    <Divider />
+                    
+                    <CardActions sx={{ p: 2 }}>
+                      <Button
+                        component={Link}
+                        to={`/admin-dashboard/season/${season.id}/candidates`}
+                        variant="contained"
+                        fullWidth
+                        sx={{ 
+                          borderRadius: 1.5,
+                          textTransform: 'none',
+                          fontWeight: 500,
+                          py: 1
+                        }}
+                      >
+                        Manage Candidates
+                      </Button>
+                    </CardActions>
+                  </Card>
+                </Grid>
+              );
+            })}
           </Grid>
         )}
         
         {/* Add Season Dialog */}
-        <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-          <DialogTitle>Add New Recruiting Season</DialogTitle>
-          <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12}>
-                <TextField
-                  name="title"
-                  label="Title"
-                  fullWidth
-                  value={seasonForm.title}
-                  onChange={handleFormChange}
-                  placeholder="e.g., Fall 2025 Faculty Recruitment"
-                  required
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  name="description"
-                  label="Description"
-                  fullWidth
-                  multiline
-                  rows={3}
-                  value={seasonForm.description}
-                  onChange={handleFormChange}
-                  placeholder="Provide details about this recruiting season"
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <DatePicker
-                  label="Start Date"
-                  value={seasonForm.start_date}
-                  onChange={(newValue) => handleDateChange('start_date', newValue)}
-                  renderInput={(params) => <TextField {...params} fullWidth required />}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <DatePicker
-                  label="End Date"
-                  value={seasonForm.end_date}
-                  onChange={(newValue) => handleDateChange('end_date', newValue)}
-                  renderInput={(params) => <TextField {...params} fullWidth required />}
-                  minDate={seasonForm.start_date}
-                />
-              </Grid>
-            </Grid>
+        <Dialog 
+          open={dialogOpen} 
+          onClose={handleCloseDialog}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: { borderRadius: 2 }
+          }}
+        >
+          <DialogTitle sx={{ 
+            bgcolor: alpha(theme.palette.primary.main, 0.05),
+            pb: 2,
+            borderBottom: '1px solid',
+            borderColor: 'divider'
+          }}>
+            <Typography variant="h6" fontWeight={600}>
+              Add New Season
+            </Typography>
+          </DialogTitle>
+          <DialogContent sx={{ p: 3, pt: 3 }}>
+            <TextField
+              label="Season Title"
+              name="title"
+              value={seasonForm.title}
+              onChange={handleFormChange}
+              fullWidth
+              margin="normal"
+              required
+              sx={{ mb: 2 }}
+            />
+            
+            <TextField
+              label="Description"
+              name="description"
+              value={seasonForm.description}
+              onChange={handleFormChange}
+              fullWidth
+              margin="normal"
+              multiline
+              rows={3}
+              sx={{ mb: 2 }}
+            />
+            
+            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+              <DatePicker
+                label="Start Date"
+                value={seasonForm.start_date}
+                onChange={(date) => handleDateChange('start_date', date)}
+                renderInput={(params) => 
+                  <TextField {...params} fullWidth margin="normal" required />
+                }
+              />
+              
+              <DatePicker
+                label="End Date"
+                value={seasonForm.end_date}
+                onChange={(date) => handleDateChange('end_date', date)}
+                renderInput={(params) => 
+                  <TextField {...params} fullWidth margin="normal" required />
+                }
+              />
+            </Box>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>Cancel</Button>
+          <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider' }}>
             <Button 
-              onClick={handleCreateSeason} 
+              onClick={handleCloseDialog}
+              sx={{ 
+                color: 'text.secondary',
+                fontWeight: 500,
+                textTransform: 'none'
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateSeason}
               variant="contained"
-              disabled={!seasonForm.title || !seasonForm.start_date || !seasonForm.end_date}
+              sx={{ 
+                borderRadius: 1.5,
+                textTransform: 'none',
+                fontWeight: 500
+              }}
             >
               Create Season
             </Button>
           </DialogActions>
         </Dialog>
         
-        {/* Snackbar for notifications */}
-        <Snackbar 
-          open={snackbar.open} 
-          autoHideDuration={6000} 
+        {/* Snackbar */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={5000}
           onClose={handleCloseSnackbar}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         >
-          <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+          <Alert 
+            onClose={handleCloseSnackbar} 
+            severity={snackbar.severity}
+            sx={{ width: '100%', borderRadius: 2 }}
+          >
             {snackbar.message}
           </Alert>
         </Snackbar>

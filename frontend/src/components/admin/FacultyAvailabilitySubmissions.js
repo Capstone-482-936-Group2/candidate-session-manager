@@ -146,6 +146,17 @@ const FacultyAvailabilitySubmissions = () => {
           Please select a candidate to view faculty availability submissions
         </Typography>
       )}
+
+      {submissions.length === 0 && (
+        <Box sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="body1" color="text.secondary">
+            No faculty availability submissions available for import.
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Either no faculty have submitted their availability yet, or all submissions have already been imported.
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 };
