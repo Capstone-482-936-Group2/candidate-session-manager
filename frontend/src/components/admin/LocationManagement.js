@@ -3,11 +3,13 @@ import {
   Container, Typography, Box, Grid, Card, CardContent, CardActions,
   Button, TextField, Dialog, DialogTitle, DialogContent, DialogActions,
   Snackbar, Alert, IconButton, Tabs, Tab, Divider, FormControl, InputLabel,
-  Select, MenuItem, List, ListItem, ListItemText, ListItemSecondaryAction
+  Select, MenuItem, List, ListItem, ListItemText, ListItemSecondaryAction,
+  CircularProgress, Paper
 } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { locationTypesAPI, locationsAPI } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme, alpha } from '@mui/material/styles';
 
 const LocationManagement = () => {
   // State for location types
@@ -37,6 +39,7 @@ const LocationManagement = () => {
   
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const { currentUser } = useAuth();
+  const theme = useTheme();
 
   useEffect(() => {
     fetchLocationTypes();
@@ -223,77 +226,187 @@ const LocationManagement = () => {
   };
 
   return (
-    <Container maxWidth="lg">
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom>Location Management</Typography>
-        <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
+    <Box>
+      <Box sx={{ 
+        mb: 3, 
+        borderBottom: '1px solid', 
+        borderColor: 'divider',
+        bgcolor: alpha(theme.palette.background.paper, 0.8)
+      }}>
+        <Tabs 
+          value={tabValue} 
+          onChange={(e, newValue) => setTabValue(newValue)}
+          variant="fullWidth"
+          sx={{
+            '& .MuiTab-root': {
+              textTransform: 'none',
+              fontWeight: 500,
+              fontSize: '1rem',
+              py: 1.5
+            },
+            '& .Mui-selected': {
+              fontWeight: 600,
+              color: 'primary.main'
+            }
+          }}
+        >
           <Tab label="Location Types" />
           <Tab label="Locations" />
         </Tabs>
       </Box>
 
       {tabValue === 0 && (
-        <>
-          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+        <Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h5" fontWeight={600} color="primary.dark">
+              Location Types
+            </Typography>
             <Button 
-              startIcon={<AddIcon />}
-              variant="contained"
+              variant="contained" 
+              startIcon={<AddIcon />} 
               onClick={() => {
                 setLocationTypeForm({ name: '', description: '' });
                 setLocationTypeDialogOpen(true);
+              }}
+              sx={{ 
+                textTransform: 'none',
+                borderRadius: 2,
+                py: 1,
+                px: 2,
+                fontWeight: 500
               }}
             >
               Add Location Type
             </Button>
           </Box>
 
-          <Grid container spacing={3}>
-            {locationTypes.map(locationType => (
-              <Grid item xs={12} sm={6} md={4} key={locationType.id}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6">{locationType.name}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {locationType.description}
-                    </Typography>
-                    <Typography variant="body2" sx={{ mt: 1 }}>
-                      Total Locations: {locations.filter(loc => loc.location_type === locationType.id).length}
-                    </Typography>
-                  </CardContent>
-                  <CardActions>
-                    <IconButton 
-                      onClick={() => {
-                        setSelectedLocationType(locationType);
-                        setLocationTypeForm({
-                          name: locationType.name,
-                          description: locationType.description || ''
-                        });
-                        setEditLocationTypeDialogOpen(true);
-                      }}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton onClick={() => handleDeleteLocationType(locationType.id)}>
-                      <DeleteIcon />
-                    </IconButton>
-                  </CardActions>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : locationTypes.length === 0 ? (
+            <Paper 
+              sx={{ 
+                p: 4, 
+                textAlign: 'center',
+                borderRadius: 2,
+                bgcolor: alpha(theme.palette.info.main, 0.05),
+                border: '1px dashed',
+                borderColor: 'divider'
+              }}
+            >
+              <Typography variant="h6" fontWeight={600} gutterBottom>
+                No Location Types Available
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Create your first location type using the "Add Location Type" button.
+              </Typography>
+            </Paper>
+          ) : (
+            <Grid container spacing={3}>
+              {locationTypes.map(locationType => (
+                <Grid item xs={12} md={6} key={locationType.id}>
+                  <Card 
+                    elevation={2} 
+                    sx={{ 
+                      borderRadius: 2,
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      transition: 'all 0.2s ease',
+                      overflow: 'hidden',
+                      '&:hover': {
+                        boxShadow: theme.shadows[6],
+                        transform: 'translateY(-2px)'
+                      }
+                    }}
+                  >
+                    <Box sx={{ 
+                      bgcolor: alpha(theme.palette.primary.main, 0.05),
+                      px: 3,
+                      py: 2
+                    }}>
+                      <Typography variant="h6" fontWeight={600}>
+                        {locationType.name}
+                      </Typography>
+                    </Box>
+                    
+                    <CardContent sx={{ flexGrow: 1, p: 3 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        {locationType.description || "No description available."}
+                      </Typography>
+                      
+                      <Box sx={{ mt: 2 }}>
+                        <Typography 
+                          variant="subtitle2" 
+                          fontWeight={600} 
+                          color="primary.dark" 
+                          gutterBottom
+                        >
+                          Associated Locations:
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {locations.filter(loc => loc.location_type === locationType.id).length} location(s)
+                        </Typography>
+                      </Box>
+                    </CardContent>
+                    
+                    <Divider />
+                    
+                    <CardActions sx={{ p: 2 }}>
+                      <Button 
+                        startIcon={<EditIcon />} 
+                        onClick={() => {
+                          setSelectedLocationType(locationType);
+                          setLocationTypeForm({
+                            name: locationType.name,
+                            description: locationType.description || ''
+                          });
+                          setEditLocationTypeDialogOpen(true);
+                        }}
+                        sx={{ 
+                          textTransform: 'none',
+                          borderRadius: 1.5,
+                          fontWeight: 500
+                        }}
+                      >
+                        Edit
+                      </Button>
+                      <Button 
+                        startIcon={<DeleteIcon />} 
+                        color="error"
+                        onClick={() => handleDeleteLocationType(locationType.id)}
+                        sx={{ 
+                          ml: 1,
+                          textTransform: 'none',
+                          borderRadius: 1.5,
+                          fontWeight: 500
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </CardActions>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          )}
+        </Box>
       )}
 
       {tabValue === 1 && (
-        <>
-          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+        <Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Typography variant="h5" fontWeight={600} color="primary.dark">
+              Locations
+            </Typography>
             <Button 
-              startIcon={<AddIcon />}
-              variant="contained"
+              variant="contained" 
+              startIcon={<AddIcon />} 
               onClick={() => {
-                setLocationForm({ 
-                  name: '', 
-                  description: '', 
+                setLocationForm({
+                  name: '',
+                  description: '',
                   location_type: locationTypes.length > 0 ? locationTypes[0].id : '',
                   address: '',
                   notes: ''
@@ -301,36 +414,146 @@ const LocationManagement = () => {
                 setLocationDialogOpen(true);
               }}
               disabled={locationTypes.length === 0}
+              sx={{ 
+                textTransform: 'none',
+                borderRadius: 2,
+                py: 1,
+                px: 2,
+                fontWeight: 500
+              }}
             >
               Add Location
             </Button>
           </Box>
 
           {locationTypes.length === 0 ? (
-            <Typography>Please add at least one location type before creating locations.</Typography>
+            <Alert 
+              severity="info" 
+              sx={{ 
+                borderRadius: 2,
+                mb: 3
+              }}
+            >
+              Please create at least one location type before adding locations.
+            </Alert>
+          ) : loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : locations.length === 0 ? (
+            <Paper 
+              sx={{ 
+                p: 4, 
+                textAlign: 'center',
+                borderRadius: 2,
+                bgcolor: alpha(theme.palette.info.main, 0.05),
+                border: '1px dashed',
+                borderColor: 'divider'
+              }}
+            >
+              <Typography variant="h6" fontWeight={600} gutterBottom>
+                No Locations Available
+              </Typography>
+              <Typography variant="body1" color="text.secondary">
+                Create your first location using the "Add Location" button.
+              </Typography>
+            </Paper>
           ) : (
             <Grid container spacing={3}>
               {locations.map(location => (
-                <Grid item xs={12} sm={6} md={4} key={location.id}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h6">{location.name}</Typography>
-                      <Typography variant="subtitle2" color="primary">
-                        Type: {locationTypes.find(t => t.id === location.location_type)?.name || 'Unknown'}
+                <Grid item xs={12} md={6} key={location.id}>
+                  <Card 
+                    elevation={2} 
+                    sx={{ 
+                      borderRadius: 2,
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      transition: 'all 0.2s ease',
+                      overflow: 'hidden',
+                      '&:hover': {
+                        boxShadow: theme.shadows[6],
+                        transform: 'translateY(-2px)'
+                      }
+                    }}
+                  >
+                    <Box sx={{ 
+                      bgcolor: alpha(theme.palette.primary.main, 0.05),
+                      px: 3,
+                      py: 2
+                    }}>
+                      <Typography variant="h6" fontWeight={600}>
+                        {location.name}
                       </Typography>
+                    </Box>
+                    
+                    <CardContent sx={{ flexGrow: 1, p: 3 }}>
+                      <Typography 
+                        variant="subtitle2" 
+                        fontWeight={600} 
+                        color="primary.dark" 
+                        gutterBottom
+                      >
+                        Location Type:
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" paragraph>
+                        {locationTypes.find(type => type.id === location.location_type)?.name || 'Unknown'}
+                      </Typography>
+                      
                       {location.description && (
-                        <Typography variant="body2" sx={{ mt: 1 }}>
-                          {location.description}
-                        </Typography>
+                        <>
+                          <Typography 
+                            variant="subtitle2" 
+                            fontWeight={600} 
+                            color="primary.dark" 
+                            gutterBottom
+                          >
+                            Description:
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" paragraph>
+                            {location.description}
+                          </Typography>
+                        </>
                       )}
+                      
                       {location.address && (
-                        <Typography variant="body2" sx={{ mt: 1 }}>
-                          Address: {location.address}
-                        </Typography>
+                        <>
+                          <Typography 
+                            variant="subtitle2" 
+                            fontWeight={600} 
+                            color="primary.dark" 
+                            gutterBottom
+                          >
+                            Address:
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" paragraph>
+                            {location.address}
+                          </Typography>
+                        </>
+                      )}
+                      
+                      {location.notes && (
+                        <>
+                          <Typography 
+                            variant="subtitle2" 
+                            fontWeight={600} 
+                            color="primary.dark" 
+                            gutterBottom
+                          >
+                            Notes:
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {location.notes}
+                          </Typography>
+                        </>
                       )}
                     </CardContent>
-                    <CardActions>
-                      <IconButton 
+                    
+                    <Divider />
+                    
+                    <CardActions sx={{ p: 2 }}>
+                      <Button 
+                        startIcon={<EditIcon />} 
                         onClick={() => {
                           setSelectedLocation(location);
                           setLocationForm({
@@ -342,19 +565,34 @@ const LocationManagement = () => {
                           });
                           setEditLocationDialogOpen(true);
                         }}
+                        sx={{ 
+                          textTransform: 'none',
+                          borderRadius: 1.5,
+                          fontWeight: 500
+                        }}
                       >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton onClick={() => handleDeleteLocation(location.id)}>
-                        <DeleteIcon />
-                      </IconButton>
+                        Edit
+                      </Button>
+                      <Button 
+                        startIcon={<DeleteIcon />} 
+                        color="error"
+                        onClick={() => handleDeleteLocation(location.id)}
+                        sx={{ 
+                          ml: 1,
+                          textTransform: 'none',
+                          borderRadius: 1.5,
+                          fontWeight: 500
+                        }}
+                      >
+                        Delete
+                      </Button>
                     </CardActions>
                   </Card>
                 </Grid>
               ))}
             </Grid>
           )}
-        </>
+        </Box>
       )}
 
       {/* Location Type Dialog */}
@@ -566,18 +804,19 @@ const LocationManagement = () => {
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        autoHideDuration={5000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert 
-          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
           severity={snackbar.severity}
-          sx={{ width: '100%' }}
+          sx={{ borderRadius: 2 }}
         >
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Container>
+    </Box>
   );
 };
 

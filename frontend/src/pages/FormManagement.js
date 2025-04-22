@@ -35,6 +35,9 @@ import {
   FormHelperText,
   Autocomplete,
   CircularProgress,
+  Card,
+  CardContent,
+  CardActions,
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
@@ -50,6 +53,7 @@ import { useAuth } from '../context/AuthContext';
 import FormSubmissions from '../components/admin/FormSubmissions';
 import FacultyAvailabilitySubmissions from '../components/admin/FacultyAvailabilitySubmissions';
 import { format, parseISO } from 'date-fns';
+import { useTheme, alpha } from '@mui/material/styles';
 
 const FIELD_TYPES = [
   { value: 'text', label: 'Text' },
@@ -91,6 +95,7 @@ const FormManagement = () => {
   const [selectedFaculty, setSelectedFaculty] = useState([]);
   const [sendingInvitations, setSendingInvitations] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const theme = useTheme();
 
   useEffect(() => {
     fetchForms();
@@ -562,15 +567,14 @@ ${currentUser?.email}`);
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
-        <Typography variant="h5" component="h2">
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h5" fontWeight={600} color="primary.dark">
           Form Management
         </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
+        <Button 
+          variant="contained" 
+          startIcon={<AddIcon />} 
           onClick={() => {
             setEditingForm(null);
             setFormData({
@@ -582,123 +586,183 @@ ${currentUser?.email}`);
             });
             setOpenDialog(true);
           }}
+          sx={{ 
+            textTransform: 'none',
+            borderRadius: 2,
+            py: 1,
+            px: 2,
+            fontWeight: 500
+          }}
         >
-          Create New Form
+          Create Form
         </Button>
       </Box>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {success}
-        </Alert>
-      )}
-
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Title</TableCell>
-              <TableCell>Description</TableCell>
-              <TableCell>Assigned To</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {forms.map((form) => (
-              <TableRow key={form.id}>
-                <TableCell>{form.title}</TableCell>
-                <TableCell>{form.description}</TableCell>
-                <TableCell>
-                  {form.id === 'faculty-availability' ? (
-                    <Chip
-                      label="Faculty Members"
-                      size="small"
-                      sx={{ mr: 0.5, mb: 0.5 }}
+      {forms.length === 0 ? (
+        <Paper 
+          sx={{ 
+            p: 4, 
+            textAlign: 'center',
+            borderRadius: 2,
+            bgcolor: alpha(theme.palette.info.main, 0.05),
+            border: '1px dashed',
+            borderColor: 'divider'
+          }}
+        >
+          <Typography variant="h6" fontWeight={600} gutterBottom>
+            No Forms Available
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Create your first form using the "Create Form" button.
+          </Typography>
+        </Paper>
+      ) : (
+        <Grid container spacing={3}>
+          {forms.map(form => (
+            <Grid item xs={12} md={6} key={form.id}>
+              <Card 
+                elevation={2} 
+                sx={{ 
+                  borderRadius: 2,
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  transition: 'all 0.2s ease',
+                  overflow: 'hidden',
+                  border: form.isVirtual ? `1px solid ${theme.palette.secondary.main}` : 'none',
+                  '&:hover': {
+                    boxShadow: theme.shadows[6],
+                    transform: 'translateY(-2px)'
+                  }
+                }}
+              >
+                <Box sx={{ 
+                  bgcolor: form.isVirtual 
+                    ? alpha(theme.palette.secondary.main, 0.08)
+                    : alpha(theme.palette.primary.main, 0.05),
+                  px: 3,
+                  py: 2,
+                  borderBottom: '1px solid',
+                  borderColor: 'divider'
+                }}>
+                  <Typography variant="h6" fontWeight={600} color={form.isVirtual ? 'secondary.dark' : 'primary.dark'}>
+                    {form.title}
+                  </Typography>
+                  {!form.is_active && !form.isVirtual && (
+                    <Chip 
+                      label="Inactive" 
+                      size="small" 
+                      color="error" 
+                      sx={{ mt: 1, borderRadius: 1 }}
                     />
-                  ) : (
-                    form.assigned_to && form.assigned_to.map((user) => (
-                      <Chip
-                        key={user.id}
-                        label={user.email}
-                        size="small"
-                        sx={{ mr: 0.5, mb: 0.5 }}
-                      />
-                    ))
                   )}
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={form.is_active ? 'Active' : 'Inactive'}
-                    color={form.is_active ? 'success' : 'default'}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>
-                  {form.id === 'faculty-availability' ? (
-                    // Actions for Faculty Availability form
+                </Box>
+                
+                <CardContent sx={{ flexGrow: 1, p: 3 }}>
+                  <Typography variant="body2" color="text.secondary" paragraph>
+                    {form.description || "No description available."}
+                  </Typography>
+                  
+                  {!form.isVirtual && (
+                    <Box sx={{ mt: 2 }}>
+                      <Typography 
+                        variant="subtitle2" 
+                        fontWeight={600} 
+                        color="primary.dark" 
+                        gutterBottom
+                      >
+                        Form Details:
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {form.form_fields?.length || 0} field(s)
+                      </Typography>
+                    </Box>
+                  )}
+                </CardContent>
+                
+                <Divider />
+                
+                <CardActions sx={{ p: 2, flexWrap: 'wrap', gap: 1 }}>
+                  {form.isVirtual ? (
                     <>
-                      <IconButton
-                        color="primary"
+                      <Button 
+                        startIcon={<VisibilityIcon />} 
                         onClick={() => handleViewSubmissions(form)}
-                        title="View Submissions"
+                        sx={{ 
+                          borderRadius: 1.5,
+                          textTransform: 'none',
+                          fontWeight: 500
+                        }}
                       >
-                        <VisibilityIcon />
-                      </IconButton>
-                      <IconButton 
-                        color="secondary" 
+                        View Submissions
+                      </Button>
+                      <Button 
+                        startIcon={<PersonAddIcon />} 
                         onClick={handleOpenInviteDialog}
-                        aria-label="invite faculty members"
-                        title="Invite Faculty Members"
+                        sx={{ 
+                          borderRadius: 1.5,
+                          textTransform: 'none',
+                          fontWeight: 500
+                        }}
                       >
-                        <EmailIcon />
-                      </IconButton>
+                        Invite Faculty
+                      </Button>
                     </>
                   ) : (
-                    // Regular form actions
                     <>
-                      <IconButton
-                        color="primary"
-                        onClick={() => handleViewSubmissions(form)}
-                        title="View Submissions"
-                      >
-                        <VisibilityIcon />
-                      </IconButton>
-                      <IconButton
-                        color="primary"
+                      <Button 
+                        startIcon={<EditIcon />} 
                         onClick={() => handleEditForm(form)}
+                        sx={{ 
+                          borderRadius: 1.5,
+                          textTransform: 'none',
+                          fontWeight: 500
+                        }}
                       >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
+                        Edit
+                      </Button>
+                      <Button 
+                        startIcon={<VisibilityIcon />} 
+                        onClick={() => handleViewSubmissions(form)}
+                        sx={{ 
+                          borderRadius: 1.5,
+                          textTransform: 'none',
+                          fontWeight: 500
+                        }}
+                      >
+                        View Submissions
+                      </Button>
+                      <Button 
+                        startIcon={<EmailIcon />} 
+                        onClick={() => handleOpenSendLinkDialog(form)}
+                        sx={{ 
+                          borderRadius: 1.5,
+                          textTransform: 'none',
+                          fontWeight: 500
+                        }}
+                      >
+                        Send Link
+                      </Button>
+                      <Button 
+                        startIcon={<DeleteIcon />} 
                         color="error"
                         onClick={() => handleDeleteForm(form.id)}
+                        sx={{ 
+                          borderRadius: 1.5,
+                          textTransform: 'none',
+                          fontWeight: 500
+                        }}
                       >
-                        <DeleteIcon />
-                      </IconButton>
-                      {isAdmin && (
-                        <IconButton 
-                          color="secondary" 
-                          onClick={() => handleOpenSendLinkDialog(form)}
-                          aria-label="send form link"
-                        >
-                          <EmailIcon />
-                        </IconButton>
-                      )}
+                        Delete
+                      </Button>
                     </>
                   )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                </CardActions>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      )}
 
       {/* Create/Edit Form Dialog */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
@@ -971,11 +1035,15 @@ ${currentUser?.email}`);
 
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={6000}
+        autoHideDuration={5000}
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity}
+          sx={{ borderRadius: 2 }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>

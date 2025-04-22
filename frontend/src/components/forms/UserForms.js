@@ -31,7 +31,10 @@ import {
   AccordionSummary,
   AccordionDetails,
   CircularProgress,
-  Snackbar
+  Snackbar,
+  Container,
+  useTheme,
+  alpha
 } from '@mui/material';
 import { 
   Visibility as VisibilityIcon, 
@@ -40,7 +43,11 @@ import {
   ExpandMore as ExpandMoreIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
-  AccessTime as TimeIcon
+  AccessTime as TimeIcon,
+  CheckCircleOutline as CheckIcon,
+  HourglassEmpty as PendingIcon,
+  ErrorOutline as ErrorIcon,
+  Assignment as FormIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import FormSubmission from './FormSubmission';
@@ -63,6 +70,7 @@ const UserForms = () => {
   const [selectedForm, setSelectedForm] = useState(null);
   const [submissions, setSubmissions] = useState({});
   const navigate = useNavigate();
+  const theme = useTheme();
   
   // Faculty Availability states
   const [showFacultySection, setShowFacultySection] = useState(false);
@@ -415,379 +423,558 @@ const UserForms = () => {
     }
   };
 
+  // Handle closing the snackbar
   const handleCloseSnackbar = () => {
-    setSnackbar({ ...snackbar, open: false });
+    setSnackbar(prev => ({ ...prev, open: false }));
+  };
+
+  // Render form table content
+  const renderForms = () => {
+    if (loading) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress color="primary" />
+        </Box>
+      );
+    }
+
+    if (forms.length === 0) {
+      return (
+        <Box sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="body1" color="text.secondary">
+            No forms are available for you at this time.
+          </Typography>
+        </Box>
+      );
+    }
+
+    return (
+      <Grid container spacing={3}>
+        {forms.map(form => {
+          const submission = submissions[form.id];
+          const isCompleted = submission?.is_completed;
+          
+          return (
+            <Grid item xs={12} sm={6} md={4} key={form.id}>
+              <Card 
+                elevation={2}
+                sx={{ 
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  borderRadius: 2,
+                  transition: 'all 0.2s ease',
+                  overflow: 'hidden',
+                  borderTop: '4px solid',
+                  borderColor: isCompleted ? 'success.main' : 'primary.main',
+                  '&:hover': {
+                    boxShadow: theme.shadows[6],
+                    transform: 'translateY(-2px)'
+                  }
+                }}
+              >
+                <Box sx={{ 
+                  bgcolor: isCompleted ? alpha(theme.palette.success.main, 0.05) : alpha(theme.palette.primary.main, 0.05),
+                  px: 2,
+                  py: 1.5,
+                  display: 'flex',
+                  alignItems: 'center'
+                }}>
+                  <FormIcon 
+                    sx={{ 
+                      mr: 1, 
+                      color: isCompleted ? 'success.main' : 'primary.main' 
+                    }} 
+                  />
+                  <Typography 
+                    variant="subtitle1" 
+                    fontWeight={600}
+                    sx={{ 
+                      color: isCompleted ? 'success.main' : 'primary.main',
+                      flexGrow: 1
+                    }}
+                  >
+                    {form.title}
+                  </Typography>
+                  <Chip 
+                    size="small"
+                    label={isCompleted ? "Completed" : "Pending"}
+                    color={isCompleted ? "success" : "primary"}
+                    sx={{ fontWeight: 500 }}
+                    icon={isCompleted ? <CheckIcon /> : <PendingIcon />}
+                  />
+                </Box>
+                
+                <CardContent sx={{ flexGrow: 1, pt: 2 }}>
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary"
+                    sx={{ 
+                      mb: 2,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      height: '3.6em' // Approximately 3 lines
+                    }}
+                  >
+                    {form.description || "No description available"}
+                  </Typography>
+                  
+                  {form.due_date && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                      <TimeIcon fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
+                      <Typography variant="body2" color="text.secondary">
+                        Due: {new Date(form.due_date).toLocaleDateString()}
+                      </Typography>
+                    </Box>
+                  )}
+                </CardContent>
+                
+                <CardActions sx={{ p: 2, pt: 0 }}>
+                  <Button
+                    variant={isCompleted ? "outlined" : "contained"}
+                    color={isCompleted ? "success" : "primary"}
+                    fullWidth
+                    onClick={() => handleViewForm(form)}
+                    endIcon={isCompleted ? <VisibilityIcon /> : <EditIcon />}
+                    sx={{ 
+                      borderRadius: 1.5,
+                      textTransform: 'none',
+                      fontWeight: 500
+                    }}
+                  >
+                    {isCompleted ? "View Submission" : "Complete Form"}
+                  </Button>
+                </CardActions>
+              </Card>
+            </Grid>
+          );
+        })}
+      </Grid>
+    );
   };
 
   return (
-    <Box sx={{ p: 3 }}>
-      {/* Faculty Availability Section - Only shown to faculty/admin/superadmin */}
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 6 }}>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" fontWeight={600} gutterBottom color="primary.dark">
+          Your Forms
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          View and complete your required forms
+        </Typography>
+      </Box>
+      
+      {error && (
+        <Alert 
+          severity="error" 
+          sx={{ 
+            mb: 3,
+            borderRadius: 2,
+            '& .MuiAlert-icon': {
+              fontSize: '1.25rem'
+            }
+          }}
+        >
+          {error}
+        </Alert>
+      )}
+      
+      {/* Faculty Availability Section - Now placed above other forms */}
       {showFacultySection && (
-        <>
+        <Card 
+          elevation={2} 
+          sx={{ 
+            mb: 4, 
+            borderRadius: 2,
+            overflow: 'hidden',
+            borderLeft: '4px solid',
+            borderColor: 'secondary.main',
+          }}
+        >
           <Accordion 
             expanded={availabilityExpanded} 
             onChange={() => setAvailabilityExpanded(!availabilityExpanded)}
-            sx={{ mb: 4 }}
+            disableGutters
+            elevation={0}
+            sx={{ 
+              '&.MuiAccordion-root:before': {
+                display: 'none',
+              }
+            }}
           >
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography variant="h5">
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              sx={{ 
+                bgcolor: alpha(theme.palette.secondary.main, 0.05),
+                borderBottom: '1px solid',
+                borderColor: 'divider'
+              }}
+            >
+              <Typography variant="h6" fontWeight={600} color="secondary.dark">
                 Faculty Availability Form
               </Typography>
             </AccordionSummary>
-            <AccordionDetails>
-              <Typography variant="body1" paragraph>
-                Use this form to specify when you're available to meet with candidates.
-              </Typography>
-              
-              {loading && !selectedCandidate && (
-                <Box sx={{ textAlign: 'center', my: 2 }}>
-                  <CircularProgress />
-                </Box>
-              )}
-              
-              {/* Candidate selection */}
-              <Paper sx={{ p: 3, mb: 3 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6">
-                    {selectedCandidate ? 
-                      `Selected Candidate: ${selectedCandidate.candidate.first_name} ${selectedCandidate.candidate.last_name}` :
-                      'Select a Candidate'
-                    }
-                  </Typography>
-                  <Button 
-                    variant="contained" 
-                    onClick={openCandidateDialog}
-                  >
-                    {selectedCandidate ? 'Change Candidate' : 'Select Candidate'}
-                  </Button>
-                </Box>
-                
-                {selectedCandidate && (
-                  <Box>
-                    {selectedCandidate.arrival_date && selectedCandidate.leaving_date && (
-                      <Alert severity="info" sx={{ mb: 2 }}>
-                        This candidate will be visiting from {format(parseISO(selectedCandidate.arrival_date), 'MMMM d')} to {format(parseISO(selectedCandidate.leaving_date), 'MMMM d, yyyy')}. Please select times within this range.
-                      </Alert>
-                    )}
-                    
-                    {/* Show existing submissions */}
-                    {existingSubmissions.length > 0 && (
-                      <Box sx={{ mb: 3 }}>
-                        <Typography variant="subtitle1" gutterBottom>
-                          Your Existing Availability Submissions:
-                        </Typography>
-                        
-                        {existingSubmissions.map(submission => (
-                          <Paper 
-                            key={submission.id} 
-                            sx={{ p: 2, mb: 2, border: '1px solid', borderColor: 'divider' }}
-                          >
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                              <Typography variant="subtitle2">
-                                Submitted on {format(parseISO(submission.submitted_at), 'MMM d, yyyy h:mm a')}
-                              </Typography>
-                              <Box>
-                                <Button 
-                                  variant="text"
-                                  color="primary"
-                                  size="small"
-                                  onClick={() => setShowSubmissionDetails(showSubmissionDetails === submission.id ? null : submission.id)}
-                                  sx={{ mr: 1 }}
-                                >
-                                  {showSubmissionDetails === submission.id ? 'Hide Details' : 'Show Details'}
-                                </Button>
-                                <Button 
-                                  variant="outlined" 
-                                  color="error"
-                                  size="small"
-                                  onClick={() => handleDeleteSubmission(submission.id)}
-                                >
-                                  Delete
-                                </Button>
-                              </Box>
-                            </Box>
+            <AccordionDetails sx={{ p: 3 }}>
+              {selectedCandidate ? (
+                <Box>
+                  <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="h6">
+                      Availability for {selectedCandidate.candidate?.first_name} {selectedCandidate.candidate?.last_name}
+                    </Typography>
+                    <Button 
+                      variant="outlined" 
+                      color="primary" 
+                      size="small"
+                      onClick={openCandidateDialog}
+                      sx={{ borderRadius: 1.5 }}
+                    >
+                      Change Candidate
+                    </Button>
+                  </Box>
+                  
+                  {selectedCandidate?.arrival_date && selectedCandidate?.leaving_date && (
+                    <Box sx={{ 
+                      mb: 3, 
+                      p: 2, 
+                      bgcolor: alpha(theme.palette.info.main, 0.1), 
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: alpha(theme.palette.info.main, 0.2),
+                    }}>
+                      <Typography variant="subtitle1" fontWeight={600} color="primary.dark">
+                        Candidate Visit: {format(parseISO(selectedCandidate.arrival_date), 'MMMM d')} - {format(parseISO(selectedCandidate.leaving_date), 'MMMM d, yyyy')}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Please schedule your availability within these dates
+                      </Typography>
+                    </Box>
+                  )}
+                  
+                  {existingSubmissions.length > 0 && (
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                        Your Previous Submissions:
+                      </Typography>
+                      <List sx={{ 
+                        bgcolor: 'background.paper', 
+                        borderRadius: 1, 
+                        border: '1px solid',
+                        borderColor: 'divider'
+                      }}>
+                        {existingSubmissions.map((submission) => (
+                          <React.Fragment key={submission.id}>
+                            <ListItem
+                              secondaryAction={
+                                <IconButton edge="end" onClick={() => handleDeleteSubmission(submission.id)}>
+                                  <DeleteIcon />
+                                </IconButton>
+                              }
+                            >
+                              <ListItemText
+                                primary={
+                                  <Typography variant="body1" fontWeight={500}>
+                                    {submission.time_slots.length} time slot(s) submitted
+                                  </Typography>
+                                }
+                                secondary={
+                                  <Typography variant="body2" color="text.secondary">
+                                    {new Date(submission.created_at).toLocaleString()}
+                                  </Typography>
+                                }
+                                onClick={() => setShowSubmissionDetails(submission.id === showSubmissionDetails ? null : submission.id)}
+                                sx={{ cursor: 'pointer' }}
+                              />
+                            </ListItem>
                             
                             {showSubmissionDetails === submission.id && (
-                              <Box sx={{ mt: 2 }}>
-                                {submission.notes && (
-                                  <Box sx={{ mb: 2 }}>
-                                    <Typography variant="subtitle2">Notes:</Typography>
-                                    <Typography variant="body2">{submission.notes}</Typography>
-                                  </Box>
-                                )}
-                                
+                              <Box sx={{ px: 2, pb: 2 }}>
                                 <Typography variant="subtitle2" gutterBottom>
                                   Time Slots:
                                 </Typography>
-                                
-                                <List dense>
+                                <Box sx={{ pl: 2 }}>
                                   {submission.time_slots.map((slot, index) => (
-                                    <ListItem key={index} sx={{ bgcolor: 'background.paper', mb: 1, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-                                      <ListItemText
-                                        primary={`${format(parseISO(slot.start_time), 'MMM d, yyyy h:mm a')} - ${format(parseISO(slot.end_time), 'h:mm a')}`}
-                                      />
-                                    </ListItem>
+                                    <Box key={index} sx={{ mb: 1 }}>
+                                      <Typography variant="body2">
+                                        Start: {new Date(slot.start_time).toLocaleString()}
+                                      </Typography>
+                                      <Typography variant="body2">
+                                        End: {new Date(slot.end_time).toLocaleString()}
+                                      </Typography>
+                                    </Box>
                                   ))}
-                                </List>
+                                </Box>
+                                
+                                {submission.notes && (
+                                  <>
+                                    <Typography variant="subtitle2" gutterBottom sx={{ mt: 1 }}>
+                                      Notes:
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ pl: 2 }}>
+                                      {submission.notes}
+                                    </Typography>
+                                  </>
+                                )}
                               </Box>
                             )}
-                          </Paper>
+                            <Divider component="li" />
+                          </React.Fragment>
                         ))}
-                      </Box>
-                    )}
-                    
-                    {/* Add new time slots */}
-                    <Divider sx={{ my: 2 }} />
-                    
-                    <Typography variant="subtitle1" gutterBottom>
-                      Add New Availability:
-                    </Typography>
-                    
+                      </List>
+                    </Box>
+                  )}
+                  
+                  <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                    Add New Availability:
+                  </Typography>
+                  
+                  <Box sx={{ mb: 3 }}>
                     <LocalizationProvider dateAdapter={AdapterDateFns}>
                       {timeSlots.map((slot, index) => (
-                        <Box key={index} sx={{ mb: 3, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2 }}>
-                          <DateTimePicker
-                            label="Start Time"
-                            value={slot.start_time}
-                            onChange={(newValue) => handleTimeSlotChange(index, 'start_time', newValue)}
-                            renderInput={(params) => <TextField {...params} fullWidth />}
-                          />
-                          <DateTimePicker
-                            label="End Time"
-                            value={slot.end_time}
-                            onChange={(newValue) => handleTimeSlotChange(index, 'end_time', newValue)}
-                            renderInput={(params) => <TextField {...params} fullWidth />}
-                          />
-                          <IconButton 
-                            color="error" 
-                            onClick={() => handleRemoveTimeSlot(index)}
-                            sx={{ mt: { xs: 1, md: 0 } }}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Box>
+                        <Grid container spacing={2} key={index} sx={{ mb: 2 }}>
+                          <Grid item xs={12} sm={5}>
+                            <DateTimePicker
+                              label="Start Time"
+                              value={slot.start_time}
+                              onChange={(newValue) => handleTimeSlotChange(index, 'start_time', newValue)}
+                              renderInput={(params) => <TextField {...params} fullWidth />}
+                              minDateTime={selectedCandidate?.arrival_date ? parseISO(selectedCandidate.arrival_date) : undefined}
+                              maxDateTime={selectedCandidate?.leaving_date ? (() => {
+                                const date = parseISO(selectedCandidate.leaving_date);
+                                date.setHours(23, 59, 59);
+                                return date;
+                              })() : undefined}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={5}>
+                            <DateTimePicker
+                              label="End Time"
+                              value={slot.end_time}
+                              onChange={(newValue) => handleTimeSlotChange(index, 'end_time', newValue)}
+                              renderInput={(params) => <TextField {...params} fullWidth />}
+                              minDateTime={selectedCandidate?.arrival_date ? parseISO(selectedCandidate.arrival_date) : undefined}
+                              maxDateTime={selectedCandidate?.leaving_date ? (() => {
+                                const date = parseISO(selectedCandidate.leaving_date);
+                                date.setHours(23, 59, 59);
+                                return date;
+                              })() : undefined}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={2}>
+                            <Button
+                              variant="outlined"
+                              color="error"
+                              onClick={() => handleRemoveTimeSlot(index)}
+                              fullWidth
+                              sx={{ 
+                                height: '56px',
+                                borderRadius: 1.5
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          </Grid>
+                        </Grid>
                       ))}
                     </LocalizationProvider>
                     
-                    <Button 
-                      startIcon={<AddIcon />} 
-                      variant="outlined" 
+                    <Button
+                      variant="outlined"
+                      color="primary"
+                      startIcon={<AddIcon />}
                       onClick={handleAddTimeSlot}
-                      sx={{ mb: 3 }}
+                      sx={{ 
+                        mt: 1,
+                        borderRadius: 1.5
+                      }}
                     >
                       Add Time Slot
                     </Button>
-                    
-                    <TextField
-                      label="Notes (optional)"
-                      fullWidth
-                      multiline
-                      rows={3}
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Add any additional notes about your availability"
-                      sx={{ mb: 3 }}
-                    />
-                    
-                    <Button 
-                      variant="contained" 
-                      color="primary" 
+                  </Box>
+                  
+                  <TextField
+                    label="Additional Notes"
+                    multiline
+                    rows={3}
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    fullWidth
+                    margin="normal"
+                    variant="outlined"
+                    sx={{ mb: 3 }}
+                  />
+                  
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button
+                      variant="contained"
+                      color="primary"
                       onClick={handleSubmitAvailability}
-                      disabled={loading || timeSlots.length === 0}
+                      disabled={timeSlots.length === 0}
+                      sx={{ 
+                        px: 3,
+                        py: 1,
+                        borderRadius: 1.5
+                      }}
                     >
                       Submit Availability
                     </Button>
                   </Box>
-                )}
-              </Paper>
+                </Box>
+              ) : (
+                <Box sx={{ textAlign: 'center', py: 2 }}>
+                  <Typography variant="body1" gutterBottom>
+                    Please select a candidate to provide your availability
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={openCandidateDialog}
+                    sx={{ 
+                      mt: 2,
+                      borderRadius: 1.5
+                    }}
+                  >
+                    Select Candidate
+                  </Button>
+                </Box>
+              )}
             </AccordionDetails>
           </Accordion>
-          
-          <Divider sx={{ mb: 4 }} />
-        </>
+        </Card>
       )}
       
-      {/* Regular Forms Section */}
-      <Typography variant="h5" gutterBottom>
-        My Forms
-      </Typography>
-
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Title</TableCell>
-              <TableCell>Description</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {forms.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} align="center">
-                  No forms available.
-                </TableCell>
-              </TableRow>
-            ) : (
-              forms.map((form) => (
-                <TableRow key={form.id}>
-                  <TableCell>{form.title}</TableCell>
-                  <TableCell>{form.description}</TableCell>
-                  <TableCell>
-                    <Chip
-                      label={submissions[form.id] ? 'Submitted' : 'Not Submitted'}
-                      color={submissions[form.id] ? 'success' : 'default'}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {submissions[form.id] ? (
-                      <Tooltip title="View Submission">
-                        <IconButton
-                          color="primary"
-                          onClick={() => handleViewForm(form)}
-                        >
-                          <VisibilityIcon />
-                        </IconButton>
-                      </Tooltip>
-                    ) : (
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={() => handleViewForm(form)}
-                      >
-                        Fill Out
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      {/* Form View Dialog */}
-      <Dialog
-        open={!!selectedForm}
-        onClose={handleCloseDialog}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>
-          {selectedForm?.title}
-          <IconButton
-            aria-label="close"
-            onClick={handleCloseDialog}
-            sx={{
-              position: 'absolute',
-              right: 8,
-              top: 8,
-            }}
-          >
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent>
-          {selectedForm && (
-            <FormSubmission
-              formId={selectedForm.id}
-              onClose={handleCloseDialog}
-              onSubmitted={handleFormSubmitted}
-              isViewOnly={!!submissions[selectedForm.id]}
-              submission={submissions[selectedForm.id]}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
+      {/* Regular forms section now comes after faculty availability */}
+      {renderForms()}
+      
       {/* Candidate Selection Dialog */}
       <Dialog
         open={candidateDialogOpen}
         onClose={closeCandidateDialog}
-        maxWidth="md"
+        maxWidth="sm"
         fullWidth
+        PaperProps={{
+          elevation: 3,
+          sx: { borderRadius: 2 }
+        }}
       >
-        <DialogTitle>
-          Select a Candidate
-          <IconButton
-            aria-label="close"
-            onClick={closeCandidateDialog}
-            sx={{
-              position: 'absolute',
-              right: 8,
-              top: 8,
-            }}
-          >
-            <CloseIcon />
-          </IconButton>
+        <DialogTitle sx={{ 
+          p: 3,
+          borderBottom: '1px solid',
+          borderColor: 'divider'
+        }}>
+          <Typography variant="h5" fontWeight={600}>
+            Select a Candidate
+          </Typography>
         </DialogTitle>
-        <DialogContent>
-          {loading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-              <CircularProgress />
-            </Box>
-          ) : candidateSections.length === 0 ? (
-            <Alert severity="info" sx={{ mt: 2 }}>
-              No candidates available at this time.
-            </Alert>
-          ) : (
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              {candidateSections.map(section => (
-                <Grid item xs={12} sm={6} key={section.id}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="subtitle1" gutterBottom>
-                        {section.candidate.first_name} {section.candidate.last_name}
+        <DialogContent sx={{ p: 3 }}>
+          {candidateSections.length > 0 ? (
+            <List>
+              {candidateSections.map((section) => (
+                <ListItem 
+                  button 
+                  key={section.id} 
+                  onClick={() => selectCandidate(section)}
+                  sx={{ 
+                    borderRadius: 1,
+                    mb: 1,
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.primary.main, 0.05)
+                    }
+                  }}
+                >
+                  <ListItemText
+                    primary={
+                      <Typography fontWeight={500}>
+                        {section.candidate?.first_name} {section.candidate?.last_name}
                       </Typography>
-                      <Typography variant="body2" color="textSecondary" gutterBottom>
-                        {section.seasonName}
-                      </Typography>
-                      {section.arrival_date && section.leaving_date && (
-                        <Chip 
-                          icon={<TimeIcon />}
-                          label={`Visit: ${format(parseISO(section.arrival_date), 'MMM d')} - ${format(parseISO(section.leaving_date), 'MMM d')}`}
-                          size="small"
-                          color="primary"
-                          sx={{ mb: 1 }}
-                        />
-                      )}
-                    </CardContent>
-                    <CardActions>
-                      <Button 
-                        fullWidth 
-                        variant="contained" 
-                        onClick={() => selectCandidate(section)}
-                      >
-                        Select
-                      </Button>
-                    </CardActions>
-                  </Card>
-                </Grid>
+                    }
+                    secondary={
+                      <>
+                        <Typography variant="body2" color="text.secondary">
+                          {section.seasonName}
+                        </Typography>
+                        {section.arrival_date && section.leaving_date && (
+                          <Typography variant="body2" color="primary.main" fontWeight={500}>
+                            Visit: {format(parseISO(section.arrival_date), 'MMM d')} - {format(parseISO(section.leaving_date), 'MMM d, yyyy')}
+                          </Typography>
+                        )}
+                      </>
+                    }
+                  />
+                </ListItem>
               ))}
-            </Grid>
+            </List>
+          ) : (
+            <Typography align="center" color="text.secondary" sx={{ py: 3 }}>
+              No candidates available at this time.
+            </Typography>
           )}
         </DialogContent>
+        <DialogActions sx={{ p: 2, pt: 0 }}>
+          <Button onClick={closeCandidateDialog} sx={{ borderRadius: 1.5 }}>
+            Cancel
+          </Button>
+        </DialogActions>
       </Dialog>
-
+      
+      {/* Form View Dialog */}
+      <Dialog
+        open={Boolean(selectedForm)}
+        onClose={handleCloseDialog}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          elevation: 3, 
+          sx: { borderRadius: 2 }
+        }}
+      >
+        {selectedForm && (
+          <>
+            <DialogTitle sx={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              bgcolor: alpha(theme.palette.primary.main, 0.05),
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+              px: 3,
+              py: 2
+            }}>
+              <Typography variant="h5" component="div" fontWeight={600} color="primary.dark">
+                {selectedForm.title}
+              </Typography>
+              <IconButton onClick={handleCloseDialog} size="small">
+                <CloseIcon />
+              </IconButton>
+            </DialogTitle>
+            <DialogContent sx={{ p: 0, overflow: 'hidden' }}>
+              <FormSubmission 
+                formId={selectedForm.id}
+                readOnly={Boolean(submissions[selectedForm.id]?.is_completed)}
+                onSubmitted={handleFormSubmitted}
+              />
+            </DialogContent>
+          </>
+        )}
+      </Dialog>
+      
       {/* Snackbar for notifications */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={6000}
+        autoHideDuration={5000}
         onClose={handleCloseSnackbar}
+        message={snackbar.message}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+        sx={{ 
+          '& .MuiSnackbarContent-root': {
+            borderRadius: 2,
+            fontWeight: 500
+          }
+        }}
+      />
+    </Container>
   );
 };
 

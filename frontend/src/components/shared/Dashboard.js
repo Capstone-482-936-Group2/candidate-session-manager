@@ -1,15 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Typography, Paper, Box, Button, Grid, CircularProgress } from '@mui/material';
+import { 
+  Container, 
+  Typography, 
+  Paper, 
+  Box, 
+  Button, 
+  Grid, 
+  CircularProgress, 
+  Card,
+  CardContent,
+  Divider,
+  useTheme
+} from '@mui/material';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { seasonsAPI, candidateSectionsAPI } from '../../api/api';
-import SessionCalendar from '../calendar/SessionCalendar'; // Updated import
+import SessionCalendar from '../calendar/SessionCalendar';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import SchoolIcon from '@mui/icons-material/School';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 
 const Dashboard = () => {
   const { currentUser, isFaculty, isAdmin } = useAuth();
   const [candidateSections, setCandidateSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const theme = useTheme();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -55,74 +71,182 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, textAlign: 'center' }}>
-        <CircularProgress />
-      </Container>
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          minHeight: '70vh' 
+        }}
+      >
+        <CircularProgress color="primary" />
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4 }}>
-      <Typography variant="h4" gutterBottom>
-        Welcome, {currentUser?.email}
-      </Typography>
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 6 }}>
+      <Box mb={4}>
+        <Typography variant="h4" gutterBottom sx={{ fontWeight: 600, color: 'primary.dark' }}>
+          Welcome, {currentUser?.first_name || currentUser?.email}
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Your session management dashboard
+        </Typography>
+      </Box>
       
       {error && (
-        <Paper sx={{ p: 2, mb: 2, bgcolor: 'error.light', color: 'error.contrastText' }}>
-          <Typography>{error}</Typography>
+        <Paper 
+          elevation={0}
+          sx={{ 
+            p: 3, 
+            mb: 4, 
+            bgcolor: '#fdeded', 
+            color: '#5f2120',
+            border: '1px solid #f5c2c7',
+            borderRadius: 2 
+          }}
+        >
+          <Typography fontWeight={500}>{error}</Typography>
         </Paper>
       )}
       
       <Grid container spacing={3}>
         <Grid item xs={12}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h5" gutterBottom>
-              Session Calendar
-            </Typography>
-            {candidateSections.length > 0 ? (
-              <SessionCalendar 
-                candidateSections={candidateSections}
-                currentUser={currentUser}
-                onRegister={handleRegister}
-                onUnregister={handleUnregister}
-              />
-            ) : (
-              <Typography>No calendar events found. Check back later!</Typography>
-            )}
-          </Paper>
+          <Card 
+            elevation={2}
+            sx={{ 
+              borderRadius: 2,
+              overflow: 'hidden',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                boxShadow: theme.shadows[4],
+              }
+            }}
+          >
+            <Box 
+              sx={{ 
+                p: 3, 
+                display: 'flex', 
+                alignItems: 'center',
+                background: 'linear-gradient(45deg, #f5f7fa 0%, #f8f9fb 100%)',
+                borderBottom: '1px solid',
+                borderColor: 'divider'
+              }}
+            >
+              <CalendarMonthIcon sx={{ color: 'primary.main', mr: 1.5 }} />
+              <Typography variant="h5" fontWeight={600}>
+                Session Calendar
+              </Typography>
+            </Box>
+            <CardContent sx={{ p: 3 }}>
+              {candidateSections.length > 0 ? (
+                <SessionCalendar 
+                  candidateSections={candidateSections}
+                  currentUser={currentUser}
+                  onRegister={handleRegister}
+                  onUnregister={handleUnregister}
+                />
+              ) : (
+                <Box sx={{ py: 4, textAlign: 'center' }}>
+                  <Typography color="text.secondary">
+                    No calendar events found. Check back later!
+                  </Typography>
+                </Box>
+              )}
+            </CardContent>
+          </Card>
         </Grid>
       </Grid>
       
-      {isFaculty && (
-        <Paper sx={{ p: 2, mt: 2 }}>
-          <Typography variant="h5" gutterBottom>
-            Faculty Options
-          </Typography>
-          <Button 
-            component={Link} 
-            to="/faculty-dashboard" 
-            variant="contained" 
-            color="primary"
-          >
-            Go to Faculty Dashboard
-          </Button>
-        </Paper>
-      )}
-      
-      {isAdmin && (
-        <Paper sx={{ p: 2, mt: 2 }}>
-          <Typography variant="h5" gutterBottom>
-            Admin Options
-          </Typography>
-          <Button 
-            component={Link} 
-            to="/admin-dashboard" 
-            variant="contained" 
-            color="primary"
-          >
-            Go to Admin Dashboard
-          </Button>
-        </Paper>
+      {(isFaculty || isAdmin) && (
+        <Grid container spacing={3} sx={{ mt: 1 }}>
+          {isFaculty && (
+            <Grid item xs={12} md={6}>
+              <Card 
+                elevation={2}
+                sx={{ 
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  transition: 'all 0.3s ease',
+                  borderLeft: '4px solid',
+                  borderColor: 'secondary.main',
+                  '&:hover': {
+                    boxShadow: theme.shadows[4]
+                  }
+                }}
+              >
+                <CardContent sx={{ p: 3 }}>
+                  <Box display="flex" alignItems="center" mb={2}>
+                    <SchoolIcon sx={{ color: 'secondary.main', mr: 1.5 }} />
+                    <Typography variant="h5" fontWeight={600}>
+                      Faculty Options
+                    </Typography>
+                  </Box>
+                  <Divider sx={{ mb: 2 }} />
+                  <Button 
+                    component={Link} 
+                    to="/faculty-dashboard" 
+                    variant="contained" 
+                    color="secondary"
+                    fullWidth
+                    size="large"
+                    sx={{ 
+                      py: 1.2,
+                      borderRadius: 2,
+                      boxShadow: 2
+                    }}
+                  >
+                    Go to Faculty Dashboard
+                  </Button>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
+          
+          {isAdmin && (
+            <Grid item xs={12} md={isFaculty ? 6 : 12}>
+              <Card 
+                elevation={2}
+                sx={{ 
+                  borderRadius: 2,
+                  overflow: 'hidden',
+                  transition: 'all 0.3s ease',
+                  borderLeft: '4px solid',
+                  borderColor: 'primary.main',
+                  '&:hover': {
+                    boxShadow: theme.shadows[4]
+                  }
+                }}
+              >
+                <CardContent sx={{ p: 3 }}>
+                  <Box display="flex" alignItems="center" mb={2}>
+                    <AdminPanelSettingsIcon sx={{ color: 'primary.main', mr: 1.5 }} />
+                    <Typography variant="h5" fontWeight={600}>
+                      Admin Options
+                    </Typography>
+                  </Box>
+                  <Divider sx={{ mb: 2 }} />
+                  <Button 
+                    component={Link} 
+                    to="/admin-dashboard" 
+                    variant="contained" 
+                    color="primary"
+                    fullWidth
+                    size="large"
+                    sx={{ 
+                      py: 1.2,
+                      borderRadius: 2,
+                      boxShadow: 2
+                    }}
+                  >
+                    Go to Admin Dashboard
+                  </Button>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
+        </Grid>
       )}
     </Container>
   );

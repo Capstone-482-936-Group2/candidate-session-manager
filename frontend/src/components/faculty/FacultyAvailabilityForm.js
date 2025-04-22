@@ -11,6 +11,118 @@ import { Delete as DeleteIcon, Add as AddIcon } from '@mui/icons-material';
 import { format, isAfter, isBefore, parseISO } from 'date-fns';
 import { seasonsAPI, candidateSectionsAPI, facultyAvailabilityAPI } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
+import { alpha } from '@mui/material/styles';
+import { useTheme } from '@mui/material/styles';
+import { Flight as FlightIcon } from '@mui/icons-material';
+
+const CandidateDateInfo = ({ candidateSection }) => {
+  const theme = useTheme();
+  
+  return (
+    <Box sx={{ 
+      mb: 3, 
+      p: 2, 
+      bgcolor: alpha(theme.palette.info.main, 0.1), 
+      borderRadius: 2,
+      border: '1px solid',
+      borderColor: alpha(theme.palette.info.main, 0.2),
+    }}>
+      <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+        Candidate Visit Information
+      </Typography>
+      
+      {(!candidateSection?.arrival_date && !candidateSection?.leaving_date) ? (
+        <Typography color="text.secondary">
+          No visit dates specified for this candidate. Please coordinate with the admin for scheduling information.
+        </Typography>
+      ) : (
+        <>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            {candidateSection.arrival_date ? (
+              <Chip
+                icon={<FlightIcon fontSize="small" />}
+                label={`Arrives: ${format(parseISO(candidateSection.arrival_date), 'MMM d, yyyy')}`}
+                color="info"
+                size="small"
+                sx={{ borderRadius: 1.5 }}
+              />
+            ) : (
+              <Chip
+                label="No arrival date specified"
+                color="default"
+                size="small"
+                sx={{ borderRadius: 1.5 }}
+              />
+            )}
+            
+            {candidateSection.leaving_date ? (
+              <Chip
+                icon={<FlightIcon fontSize="small" />}
+                label={`Departs: ${format(parseISO(candidateSection.leaving_date), 'MMM d, yyyy')}`}
+                color="info"
+                size="small"
+                sx={{ borderRadius: 1.5 }}
+              />
+            ) : (
+              <Chip
+                label="No departure date specified"
+                color="default"
+                size="small"
+                sx={{ borderRadius: 1.5 }}
+              />
+            )}
+          </Box>
+          
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            {candidateSection.arrival_date && candidateSection.leaving_date ? 
+              "Please schedule your availability within the candidate's visit dates." :
+              "Some visit dates are missing. Please coordinate with the admin for scheduling information."}
+          </Typography>
+        </>
+      )}
+      
+      {(candidateSection?.arrival_date || candidateSection?.leaving_date) && (
+        <Box sx={{ mt: 2, p: 1, bgcolor: 'background.paper', borderRadius: 1 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Available Days:
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+            {candidateSection.arrival_date && candidateSection.leaving_date && 
+              getDatesInRange(parseISO(candidateSection.arrival_date), parseISO(candidateSection.leaving_date))
+                .map(date => (
+                  <Chip 
+                    key={date.toISOString()}
+                    label={format(date, 'd MMM')}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                    sx={{ minWidth: '70px' }}
+                  />
+                ))
+            }
+          </Box>
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+const getDatesInRange = (startDate, endDate) => {
+  const dates = [];
+  let currentDate = new Date(startDate);
+  
+  currentDate.setHours(0, 0, 0, 0);
+  
+  const lastDate = new Date(endDate);
+  lastDate.setHours(23, 59, 59, 999);
+  
+  while (currentDate <= lastDate) {
+    dates.push(new Date(currentDate));
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  
+  return dates;
+};
 
 const FacultyAvailabilityForm = () => {
   const { currentUser } = useAuth();
@@ -88,22 +200,40 @@ const FacultyAvailabilityForm = () => {
   const handleAddTimeSlot = () => {
     // Get default start time (today at the next hour)
     const now = new Date();
-    const startTime = new Date(now);
+    let startTime = new Date(now);
     startTime.setHours(now.getHours() + 1, 0, 0, 0); // Next hour, 0 minutes
 
     // If a candidate is selected and has arrival/leaving dates, ensure the time is within those dates
-    if (selectedCandidate && selectedCandidate.arrival_date && selectedCandidate.leaving_date) {
-      const arrivalDate = parseISO(selectedCandidate.arrival_date);
+    if (selectedCandidate) {
+      const arrivalDate = selectedCandidate.arrival_date ? parseISO(selectedCandidate.arrival_date) : null;
+      const leavingDate = selectedCandidate.leaving_date ? parseISO(selectedCandidate.leaving_date) : null;
       
-      // If arrival date is in the future, set start time to morning of arrival date
-      if (isAfter(arrivalDate, now)) {
-        startTime.setFullYear(arrivalDate.getFullYear(), arrivalDate.getMonth(), arrivalDate.getDate());
+      // Set to arrival date if it's in the future
+      if (arrivalDate && isAfter(arrivalDate, now)) {
+        startTime = new Date(arrivalDate);
+        startTime.setHours(9, 0, 0, 0); // 9:00 AM
+      }
+      
+      // Make sure startTime is not after leaving date
+      if (leavingDate && isAfter(startTime, leavingDate)) {
+        startTime = new Date(leavingDate);
         startTime.setHours(9, 0, 0, 0); // 9:00 AM
       }
     }
 
+    // Create end time one hour after start
     const endTime = new Date(startTime);
     endTime.setMinutes(endTime.getMinutes() + 60); // 1 hour slot
+    
+    // Adjust end time if it exceeds leaving date
+    if (selectedCandidate?.leaving_date) {
+      const leavingDate = parseISO(selectedCandidate.leaving_date);
+      leavingDate.setHours(23, 59, 59); // End of day
+      
+      if (isAfter(endTime, leavingDate)) {
+        endTime.setTime(leavingDate.getTime());
+      }
+    }
 
     setTimeSlots([...timeSlots, { start_time: startTime, end_time: endTime }]);
   };
@@ -117,7 +247,60 @@ const FacultyAvailabilityForm = () => {
   const handleTimeSlotChange = (index, field, value) => {
     const updatedSlots = [...timeSlots];
     updatedSlots[index] = { ...updatedSlots[index], [field]: value };
+    
+    // Validate the time slot immediately
+    const errors = validateTimeSlot(
+      field === 'start_time' ? value : updatedSlots[index].start_time,
+      field === 'end_time' ? value : updatedSlots[index].end_time
+    );
+    
+    if (errors.length > 0) {
+      setSnackbar({
+        open: true,
+        message: errors.join('. '),
+        severity: 'warning'
+      });
+    }
+    
     setTimeSlots(updatedSlots);
+  };
+
+  const validateTimeSlot = (startTime, endTime) => {
+    const errors = [];
+    
+    // Check if candidate has arrival/departure dates
+    if (selectedCandidate?.arrival_date || selectedCandidate?.leaving_date) {
+      const arrivalDate = selectedCandidate.arrival_date ? new Date(selectedCandidate.arrival_date) : null;
+      const leavingDate = selectedCandidate.leaving_date ? new Date(selectedCandidate.leaving_date) : null;
+      
+      // Set arrival date to start of day and leaving date to end of day
+      if (arrivalDate) {
+        arrivalDate.setHours(0, 0, 0, 0);
+      }
+      if (leavingDate) {
+        leavingDate.setHours(23, 59, 59, 999);
+      }
+      
+      const start = new Date(startTime);
+      const end = endTime ? new Date(endTime) : null;
+      
+      // Check if start time is before arrival date
+      if (arrivalDate && start < arrivalDate) {
+        errors.push("Start time cannot be before candidate's arrival date");
+      }
+      
+      // Check if end time is after leaving date
+      if (leavingDate && end && end > leavingDate) {
+        errors.push("End time cannot be after candidate's departure date");
+      }
+      
+      // If no end time, check if start time is after leaving date
+      if (leavingDate && !end && start > leavingDate) {
+        errors.push("Time slot cannot start after candidate's departure date");
+      }
+    }
+    
+    return errors;
   };
 
   const handleSubmit = async () => {
@@ -139,43 +322,23 @@ const FacultyAvailabilityForm = () => {
       return;
     }
 
-    // Validate time slots
-    let isValid = true;
-    let errorMessage = '';
-
-    timeSlots.forEach((slot, index) => {
-      if (!slot.start_time || !slot.end_time) {
-        isValid = false;
-        errorMessage = 'All time slots must have start and end times';
+    // Validate all time slots
+    let hasErrors = false;
+    for (const slot of timeSlots) {
+      const errors = validateTimeSlot(slot.start_time, slot.end_time);
+      if (errors.length > 0) {
+        setSnackbar({
+          open: true,
+          message: errors.join('. '),
+          severity: 'error'
+        });
+        hasErrors = true;
+        break;
       }
-
-      if (isValid && isBefore(slot.end_time, slot.start_time)) {
-        isValid = false;
-        errorMessage = `Time slot ${index + 1} has end time before start time`;
-      }
-
-      // Check if time is within candidate's visiting dates
-      if (isValid && selectedCandidate.arrival_date && selectedCandidate.leaving_date) {
-        const arrivalDate = new Date(selectedCandidate.arrival_date);
-        arrivalDate.setHours(0, 0, 0, 0); // Start of arrival day
-        
-        const leavingDate = new Date(selectedCandidate.leaving_date);
-        leavingDate.setHours(23, 59, 59, 999); // End of leaving day
-        
-        if (isBefore(slot.start_time, arrivalDate) || isAfter(slot.start_time, leavingDate)) {
-          isValid = false;
-          errorMessage = `Time slot ${index + 1} is outside the candidate's visit dates (${format(arrivalDate, 'MMM d, yyyy')} - ${format(leavingDate, 'MMM d, yyyy')})`;
-        }
-      }
-    });
-
-    if (!isValid) {
-      setSnackbar({
-        open: true,
-        message: errorMessage,
-        severity: 'error'
-      });
-      return;
+    }
+    
+    if (hasErrors) {
+      return; // Don't submit if there are validation errors
     }
 
     try {
@@ -282,7 +445,7 @@ const FacultyAvailabilityForm = () => {
           <Grid container spacing={3}>
             {seasons.map(season => (
               <Grid item xs={12} md={6} key={season.id}>
-                <Card>
+                <Card variant="outlined">
                   <CardContent>
                     <Typography variant="h6">
                       {season.title}
@@ -331,7 +494,7 @@ const FacultyAvailabilityForm = () => {
             <Grid container spacing={3}>
               {candidateSections.map(section => (
                 <Grid item xs={12} md={6} key={section.id}>
-                  <Card>
+                  <Card variant="outlined">
                     <CardContent>
                       <Typography variant="h6">
                         {section.candidate.first_name} {section.candidate.last_name}
@@ -340,16 +503,45 @@ const FacultyAvailabilityForm = () => {
                         {section.candidate.email}
                       </Typography>
                       
-                      {section.arrival_date && section.leaving_date && (
-                        <Box sx={{ mt: 1 }}>
+                      <Box sx={{ mt: 2, mb: 1 }}>
+                        <Typography variant="subtitle2" fontWeight={600} color="primary.main" gutterBottom>
+                          Candidate Visit Dates:
+                        </Typography>
+                        
+                        {section.arrival_date ? (
                           <Chip 
-                            label={`Visit: ${format(parseISO(section.arrival_date), 'MMM d')} - ${format(parseISO(section.leaving_date), 'MMM d, yyyy')}`}
-                            color="primary"
+                            icon={<FlightIcon fontSize="small" />}
+                            label={`Arrives: ${format(parseISO(section.arrival_date), 'MMM d, yyyy')}`} 
+                            color="info"
                             size="small"
-                            sx={{ mr: 1 }}
+                            sx={{ mr: 1, mb: 1 }}
                           />
-                        </Box>
-                      )}
+                        ) : (
+                          <Chip
+                            label="No arrival date specified"
+                            color="default"
+                            size="small"
+                            sx={{ mr: 1, mb: 1 }}
+                          />
+                        )}
+                        
+                        {section.leaving_date ? (
+                          <Chip 
+                            icon={<FlightIcon fontSize="small" />}
+                            label={`Departs: ${format(parseISO(section.leaving_date), 'MMM d, yyyy')}`}
+                            color="info" 
+                            size="small"
+                            sx={{ mb: 1 }}
+                          />
+                        ) : (
+                          <Chip
+                            label="No departure date specified"
+                            color="default"
+                            size="small"
+                            sx={{ mb: 1 }}
+                          />
+                        )}
+                      </Box>
                       
                       {section.description && (
                         <Typography variant="body2" sx={{ mt: 2 }}>
@@ -383,11 +575,7 @@ const FacultyAvailabilityForm = () => {
             </Typography>
           </Box>
           
-          {selectedCandidate.arrival_date && selectedCandidate.leaving_date && (
-            <Alert severity="info" sx={{ mb: 3 }}>
-              This candidate will be visiting from {format(parseISO(selectedCandidate.arrival_date), 'MMMM d')} to {format(parseISO(selectedCandidate.leaving_date), 'MMMM d, yyyy')}. Please select times within this range.
-            </Alert>
-          )}
+          <CandidateDateInfo candidateSection={selectedCandidate} />
           
           {existingSubmissions.length > 0 && (
             <Box sx={{ mb: 4 }}>
@@ -396,7 +584,7 @@ const FacultyAvailabilityForm = () => {
               </Typography>
               
               {existingSubmissions.map(submission => (
-                <Paper key={submission.id} sx={{ p: 2, mb: 2 }}>
+                <Paper key={submission.id} variant="outlined" sx={{ p: 2, mb: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                     <Typography variant="subtitle1">
                       Submitted on {format(parseISO(submission.submitted_at), 'MMM d, yyyy h:mm a')}
@@ -442,7 +630,23 @@ const FacultyAvailabilityForm = () => {
             Add New Availability
           </Typography>
           
-          <Paper sx={{ p: 3, mb: 4 }}>
+          {selectedCandidate?.arrival_date && selectedCandidate?.leaving_date && (
+            <Typography 
+              variant="subtitle1" 
+              color="primary" 
+              sx={{ 
+                mb: 2, 
+                fontWeight: 'bold', 
+                backgroundColor: '#e3f2fd', 
+                p: 1, 
+                borderRadius: 1 
+              }}
+            >
+              Candidate Visit Dates: {format(parseISO(selectedCandidate.arrival_date), 'MMMM d, yyyy')} to {format(parseISO(selectedCandidate.leaving_date), 'MMMM d, yyyy')}
+            </Typography>
+          )}
+          
+          <Paper variant="outlined" sx={{ p: 3, mb: 4 }}>
             <Typography variant="subtitle1" gutterBottom>
               Time Slots
             </Typography>
@@ -455,12 +659,24 @@ const FacultyAvailabilityForm = () => {
                     value={slot.start_time}
                     onChange={(newValue) => handleTimeSlotChange(index, 'start_time', newValue)}
                     renderInput={(params) => <TextField {...params} fullWidth />}
+                    minDateTime={selectedCandidate.arrival_date ? parseISO(selectedCandidate.arrival_date) : undefined}
+                    maxDateTime={selectedCandidate.leaving_date ? (() => {
+                      const date = parseISO(selectedCandidate.leaving_date);
+                      date.setHours(23, 59, 59);
+                      return date;
+                    })() : undefined}
                   />
                   <DateTimePicker
                     label="End Time"
                     value={slot.end_time}
                     onChange={(newValue) => handleTimeSlotChange(index, 'end_time', newValue)}
                     renderInput={(params) => <TextField {...params} fullWidth />}
+                    minDateTime={slot.start_time}
+                    maxDateTime={selectedCandidate.leaving_date ? (() => {
+                      const date = parseISO(selectedCandidate.leaving_date);
+                      date.setHours(23, 59, 59);
+                      return date;
+                    })() : undefined}
                   />
                   <IconButton 
                     color="error" 

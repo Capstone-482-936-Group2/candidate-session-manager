@@ -378,6 +378,15 @@ class FacultyAvailabilityViewSet(viewsets.ModelViewSet):
             faculty = availability.faculty
             candidate_section = availability.candidate_section
             
+            # Initialize imported_availability_ids if it doesn't exist
+            if candidate_section.imported_availability_ids is None:
+                candidate_section.imported_availability_ids = []
+            
+            # Add this availability ID if not already there
+            if int(pk) not in candidate_section.imported_availability_ids:
+                candidate_section.imported_availability_ids.append(int(pk))
+                candidate_section.save(update_fields=['imported_availability_ids'])
+            
             created_slots = []
             
             for time_slot in availability.time_slots.all():
@@ -402,7 +411,8 @@ class FacultyAvailabilityViewSet(viewsets.ModelViewSet):
             
             return Response({
                 "message": f"Successfully imported {len(created_slots)} time slots from faculty availability",
-                "created_time_slots": created_slots
+                "created_time_slots": created_slots,
+                "imported_availability_ids": candidate_section.imported_availability_ids
             }, status=status.HTTP_201_CREATED)
             
         except Exception as e:
