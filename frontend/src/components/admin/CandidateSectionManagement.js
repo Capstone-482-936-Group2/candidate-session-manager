@@ -819,8 +819,20 @@ const CandidateSectionManagement = () => {
     try {
       const response = await facultyAvailabilityAPI.getAvailabilityByCandidate(sectionId);
       
-      // Filter out already imported availability submissions
-      const importedIds = importedAvailabilityIds[sectionId] || [];
+      // Get the latest section data to have up-to-date imported IDs
+      const sectionResponse = await candidateSectionsAPI.getCandidateSectionById(sectionId);
+      const section = sectionResponse.data;
+      
+      // Update importedAvailabilityIds for this section if needed
+      if (section.imported_availability_ids) {
+        setImportedAvailabilityIds(prev => ({
+          ...prev,
+          [sectionId]: section.imported_availability_ids
+        }));
+      }
+      
+      // Use the updated imported IDs
+      const importedIds = section.imported_availability_ids || [];
       const filteredAvailability = response.data.filter(
         submission => !importedIds.includes(submission.id)
       );
@@ -858,37 +870,48 @@ const CandidateSectionManagement = () => {
         { markAsImported: true }
       );
       
-      // Mark this availability as imported
-      setImportedAvailabilityIds(prev => ({
-        ...prev,
+      // Update imported IDs in state
+      const updatedImportedIds = {
+        ...importedAvailabilityIds,
         [selectedCandidateSection.id]: [
-          ...(prev[selectedCandidateSection.id] || []),
+          ...(importedAvailabilityIds[selectedCandidateSection.id] || []),
           availabilityId
         ]
-      }));
+      };
+      setImportedAvailabilityIds(updatedImportedIds);
       
       // Update the faculty availability list to remove the imported one
       setFacultyAvailability(prev => 
         prev.filter(item => item.id !== availabilityId)
       );
       
-      // IMPORTANT: Fetch the updated candidate section with new time slots
+      // Fetch the updated candidate section with new time slots
       const updatedSectionResponse = await candidateSectionsAPI.getCandidateSectionById(
         selectedCandidateSection.id
       );
+      
+      const updatedSection = updatedSectionResponse.data;
+      
+      // Ensure the imported_availability_ids field is updated
+      if (!updatedSection.imported_availability_ids) {
+        updatedSection.imported_availability_ids = [];
+      }
+      if (!updatedSection.imported_availability_ids.includes(availabilityId)) {
+        updatedSection.imported_availability_ids.push(availabilityId);
+      }
       
       // Update the candidateSections state with the newly fetched data
       setCandidateSections(prevSections => {
         return prevSections.map(section => {
           if (section.id === selectedCandidateSection.id) {
-            return updatedSectionResponse.data;
+            return updatedSection;
           }
           return section;
         });
       });
       
       // Also update the selectedCandidateSection so the dialog shows updated data
-      setSelectedCandidateSection(updatedSectionResponse.data);
+      setSelectedCandidateSection(updatedSection);
       
       setSnackbar({
         open: true,
