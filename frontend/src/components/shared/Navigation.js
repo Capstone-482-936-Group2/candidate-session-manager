@@ -1,3 +1,8 @@
+/**
+ * Main navigation bar component for the application.
+ * Displays different navigation options based on user role and authentication status.
+ * Handles user menu, active route highlighting, and logout functionality.
+ */
 import React from 'react';
 import { 
   AppBar, 
@@ -16,20 +21,38 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { AccountCircle } from '@mui/icons-material';
 
+/**
+ * Navigation component renders the app header with navigation links and user menu.
+ * Shows different navigation options based on user role (admin, faculty, candidate).
+ * Displays login button for unauthenticated users and user menu for authenticated users.
+ * 
+ * @returns {React.ReactNode} Application navigation bar
+ */
 const Navigation = () => {
   const { currentUser, logout, isAdmin, isFaculty } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [anchorEl, setAnchorEl] = React.useState(null);
 
+  /**
+   * Opens the user menu
+   * 
+   * @param {React.MouseEvent} event - Click event on the user avatar
+   */
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
   };
 
+  /**
+   * Closes the user menu
+   */
   const handleClose = () => {
     setAnchorEl(null);
   };
 
+  /**
+   * Handles user logout and redirects to login page
+   */
   const handleLogout = async () => {
     handleClose();
     try {
@@ -40,6 +63,13 @@ const Navigation = () => {
     }
   };
 
+  /**
+   * Checks if the given path matches the current route
+   * Used to highlight active navigation items
+   * 
+   * @param {string} path - Route path to check
+   * @returns {boolean} Whether the path is active
+   */
   const isActive = (path) => {
     return location.pathname === path;
   };
@@ -52,6 +82,7 @@ const Navigation = () => {
     }}>
       <Container maxWidth="lg">
         <Toolbar disableGutters>
+          {/* App title/logo */}
           <Typography 
             variant="h6" 
             component={Link} 
@@ -69,6 +100,7 @@ const Navigation = () => {
           
           {currentUser ? (
             <>
+              {/* Navigation links - shown based on user role */}
               <Box sx={{ display: 'flex', gap: 1 }}>
                 {currentUser.user_type !== 'candidate' && (
                   <Button 
@@ -137,6 +169,7 @@ const Navigation = () => {
                 )}
               </Box>
               
+              {/* User avatar and menu */}
               <IconButton
                 size="small"
                 aria-label="account of current user"
@@ -188,6 +221,7 @@ const Navigation = () => {
               </Menu>
             </>
           ) : (
+            /* Login button for unauthenticated users */
             <Button 
               color="inherit" 
               component={Link} 

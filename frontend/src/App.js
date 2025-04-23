@@ -1,3 +1,7 @@
+/**
+ * Main application component that configures routing, theming, and authentication.
+ * Sets up the application structure with protected routes based on user roles.
+ */
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
@@ -29,7 +33,11 @@ import AdminRoute from './components/auth/AdminRoute';
 import FormManagement from './pages/FormManagement';
 import FacultyAvailabilityForm from './components/faculty/FacultyAvailabilityForm';
 
-// Create theme
+/**
+ * Application theme configuration using Material UI
+ * Defines color palette, typography, and other UI elements
+ * Primary color uses Texas A&M maroon
+ */
 const theme = createTheme({
   palette: {
     mode: 'light',
@@ -77,6 +85,11 @@ const theme = createTheme({
 // Google Client ID from environment variable
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
 
+/**
+ * Main App component that wraps the application with necessary providers
+ * and defines the routing structure
+ * @returns {JSX.Element} The application component
+ */
 function App() {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
@@ -91,16 +104,18 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 
-                {/* Protected routes */}
+                {/* Protected routes for candidates */}
                 <Route element={<ProtectedRoute requiredRole="candidate" />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/seasons" element={<RecruitingSeasons />} />
                 </Route>
                 
+                {/* Protected routes for faculty */}
                 <Route element={<ProtectedRoute requiredRole="faculty" />}>
                   <Route path="/faculty-dashboard" element={<FacultyDashboard />} />
                 </Route>
                 
+                {/* Protected routes for administrators */}
                 <Route element={<ProtectedRoute requiredRole="admin" />}>
                   <Route path="/admin-dashboard" element={<AdminDashboard />} />
                   <Route path="/admin-dashboard/season/:seasonId/candidates" element={<CandidateSectionManagement />} />
@@ -108,6 +123,7 @@ function App() {
                   <Route path="/admin-dashboard/form-management" element={<FormManagement />} />
                 </Route>
                 
+                {/* Admin route using AdminRoute component */}
                 <Route
                   path="/admin"
                   element={
@@ -117,6 +133,7 @@ function App() {
                   }
                 />
                 
+                {/* Dashboard route using PrivateRoute component */}
                 <Route
                   path="/dashboard"
                   element={
@@ -126,6 +143,7 @@ function App() {
                   }
                 />
                 
+                {/* Forms routes */}
                 <Route
                   path="/forms"
                   element={
@@ -144,6 +162,7 @@ function App() {
                   }
                 />
                 
+                {/* Faculty availability route with role-based access */}
                 <Route 
                   path="/faculty-availability" 
                   element={
@@ -153,10 +172,10 @@ function App() {
                   } 
                 />
                 
-                {/* Redirect root to dashboard or login */}
+                {/* Default route redirects to dashboard */}
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 
-                {/* Catch all - redirect to dashboard */}
+                {/* Catch-all route - redirects to dashboard */}
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </Router>

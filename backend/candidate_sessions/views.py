@@ -1,3 +1,7 @@
+"""
+Views for the candidate session management system.
+Provides API endpoints for managing sessions, candidates, time slots, and related functionality.
+"""
 from django.shortcuts import render
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
@@ -36,18 +40,29 @@ logger = logging.getLogger(__name__)
 # Create your views here.
 
 class IsAdminOrReadOnly(permissions.BasePermission):
+    """
+    Custom permission that allows read-only access to authenticated users,
+    but restricts write operations to admin users only.
+    """
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return request.user.is_authenticated
         return request.user.is_authenticated and request.user.is_admin
 
 class IsFacultyOrReadOnly(permissions.BasePermission):
+    """
+    Custom permission that allows read-only access to authenticated users,
+    but restricts write operations to faculty users only.
+    """
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return request.user.is_authenticated
         return request.user.is_authenticated and request.user.user_type == 'faculty'
 
 class IsAdminOrCandidateOwner(permissions.BasePermission):
+    """
+    Custom permission that allows access to admin users or the candidate who owns the resource.
+    """
     def has_permission(self, request, view):
         return request.user.is_authenticated
 
@@ -59,6 +74,10 @@ class IsAdminOrCandidateOwner(permissions.BasePermission):
         return obj.candidate == request.user
 
 class IsAdminOrFacultyOrSectionOwner(permissions.BasePermission):
+    """
+    Custom permission that allows read access to authenticated users,
+    but restricts write operations to admins, faculty, or section owners.
+    """
     def has_permission(self, request, view):
         if request.method in permissions.SAFE_METHODS:
             return request.user.is_authenticated
@@ -90,13 +109,22 @@ class IsAdminOrFaculty(permissions.BasePermission):
         )
 
 class SessionViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing session resources.
+    Provides CRUD operations for recruitment sessions.
+    """
     serializer_class = SessionSerializer
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
+        """Return all sessions."""
         return Session.objects.all()
     
     def get_serializer_class(self):
+        """
+        Return appropriate serializer based on action.
+        Uses detailed serializer for retrieval and create/update serializer for modifications.
+        """
         if self.action == 'retrieve':
             return SessionDetailSerializer
         if self.action in ['create', 'update', 'partial_update']:
@@ -104,15 +132,27 @@ class SessionViewSet(viewsets.ModelViewSet):
         return SessionSerializer
     
     def perform_create(self, serializer):
+        """
+        Create a new session.
+        Ensures only admin users can create sessions and sets the creator.
+        """
         if self.request.user.user_type not in ['admin', 'superadmin']:
             raise serializers.ValidationError("Only administrators can create sessions.")
         serializer.save(created_by=self.request.user)
 
 class CandidateSectionViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing candidate section resources.
+    Provides CRUD operations for sections within sessions that candidates participate in.
+    """
     serializer_class = CandidateSectionSerializer
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
+        """
+        Return filtered candidate sections based on user role and query parameters.
+        Admins and faculty can see all sections, others only see their own.
+        """
         user = self.request.user
         session_id = self.request.query_params.get('session')
         queryset = CandidateSection.objects.all()
@@ -128,23 +168,40 @@ class CandidateSectionViewSet(viewsets.ModelViewSet):
         return queryset
     
     def get_serializer_class(self):
+        """
+        Return appropriate serializer based on action.
+        Uses create serializer for modifications.
+        """
         if self.action in ['create', 'update', 'partial_update']:
             return CandidateSectionCreateSerializer
         return CandidateSectionSerializer
     
     def perform_create(self, serializer):
+        """
+        Create a new candidate section.
+        Ensures only admin users can create sections.
+        """
         if self.request.user.user_type not in ['admin', 'superadmin']:
             raise serializers.ValidationError("Only administrators can create candidate sections.")
         serializer.save()
 
 class SessionTimeSlotViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing session time slot resources.
+    Provides CRUD operations for time slots within candidate sections.
+    """
     serializer_class = SessionTimeSlotSerializer
     permission_classes = [IsAdminOrFacultyOrSectionOwner]
     
     def get_queryset(self):
+        """Return all time slots."""
         return SessionTimeSlot.objects.all()
     
     def get_serializer_class(self):
+        """
+        Return appropriate serializer based on action.
+        Uses detailed serializer for retrieval and create serializer for modifications.
+        """
         if self.action == 'retrieve':
             return TimeSlotDetailSerializer
         if self.action in ['create', 'update', 'partial_update']:
@@ -153,6 +210,10 @@ class SessionTimeSlotViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def register(self, request, pk=None):
+        """
+        Register the current user for a specific time slot.
+        Checks for availability and prevents duplicate registrations.
+        """
         time_slot = self.get_object()
         user = request.user
         
@@ -177,6 +238,10 @@ class SessionTimeSlotViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def unregister(self, request, pk=None):
+        """
+        Unregister the current user from a specific time slot.
+        Removes the attendee record if found.
+        """
         time_slot = self.get_object()
         user = request.user
         
@@ -187,15 +252,27 @@ class SessionTimeSlotViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 class SessionAttendeeViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing session attendee resources.
+    Provides CRUD operations for users registered to attend time slots.
+    """
     queryset = SessionAttendee.objects.all()
     serializer_class = SessionAttendeeSerializer
     
     def get_permissions(self):
+        """
+        Return appropriate permissions based on action.
+        List and retrieve are available to authenticated users, others only to admins.
+        """
         if self.action in ['list', 'retrieve']:
             return [permissions.IsAuthenticated()]
         return [IsAdminOrReadOnly()]
     
     def get_queryset(self):
+        """
+        Return filtered attendees based on user role.
+        Admins can see all attendees, others only see their own registrations.
+        """
         user = self.request.user
         if user.is_admin:
             return SessionAttendee.objects.all()
@@ -203,15 +280,27 @@ class SessionAttendeeViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def my_registrations(self, request):
+        """
+        List all time slots the current user is registered for.
+        Returns attendee records for the current user.
+        """
         attendees = SessionAttendee.objects.filter(user=request.user)
         serializer = self.get_serializer(attendees, many=True)
         return Response(serializer.data)
 
 class TimeSlotTemplateViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing time slot template resources.
+    Provides CRUD operations for templates used to create time slots.
+    """
     serializer_class = TimeSlotTemplateSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdminOrFacultyOrSectionOwner]
     
     def get_queryset(self):
+        """
+        Return filtered templates based on user role.
+        Admins can see all templates, others only see their own.
+        """
         # Only return templates created by the current user or that are public
         user = self.request.user
         if user.is_admin:
@@ -219,16 +308,29 @@ class TimeSlotTemplateViewSet(viewsets.ModelViewSet):
         return TimeSlotTemplate.objects.filter(created_by=user)
 
 class LocationTypeViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing location type resources.
+    Provides CRUD operations for types of locations.
+    """
     serializer_class = LocationTypeSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdminOrFaculty]
     
     def get_queryset(self):
+        """Return all location types."""
         return LocationType.objects.all()
     
     def perform_create(self, serializer):
+        """
+        Create a new location type.
+        Sets the creator to the current user.
+        """
         serializer.save(created_by=self.request.user)
 
     def list(self, request, *args, **kwargs):
+        """
+        List all location types.
+        Handles errors with logging.
+        """
         try:
             return super().list(request, *args, **kwargs)
         except Exception as e:
@@ -236,6 +338,10 @@ class LocationTypeViewSet(viewsets.ModelViewSet):
             raise
 
     def create(self, request, *args, **kwargs):
+        """
+        Create a new location type.
+        Handles errors with logging.
+        """
         try:
             return super().create(request, *args, **kwargs)
         except Exception as e:
@@ -243,10 +349,18 @@ class LocationTypeViewSet(viewsets.ModelViewSet):
             raise
 
 class LocationViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing location resources.
+    Provides CRUD operations for physical or virtual locations.
+    """
     serializer_class = LocationSerializer
     permission_classes = [permissions.IsAuthenticated, IsAdminOrFaculty]
     
     def get_queryset(self):
+        """
+        Return filtered locations based on query parameters.
+        Can filter by location type.
+        """
         location_type = self.request.query_params.get('location_type', None)
         queryset = Location.objects.all()
         
@@ -256,13 +370,25 @@ class LocationViewSet(viewsets.ModelViewSet):
         return queryset
     
     def perform_create(self, serializer):
+        """
+        Create a new location.
+        Sets the creator to the current user.
+        """
         serializer.save(created_by=self.request.user)
 
 class FormViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing form resources.
+    Provides CRUD operations for forms that can be assigned to users.
+    """
     serializer_class = FormSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        """
+        Return filtered forms based on user role.
+        Staff can see all forms, others only see forms assigned to them.
+        """
         user = self.request.user
         if user.is_staff:
             return Form.objects.all()
@@ -270,16 +396,29 @@ class FormViewSet(viewsets.ModelViewSet):
         return Form.objects.filter(assigned_to=user, is_active=True)
 
     def perform_create(self, serializer):
+        """
+        Create a new form.
+        Sets the creator to the current user.
+        """
         serializer.save(created_by=self.request.user)
 
     def perform_update(self, serializer):
+        """Update an existing form."""
         serializer.save()
 
 class FormSubmissionViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing form submission resources.
+    Provides CRUD operations for submitted forms from users.
+    """
     serializer_class = FormSubmissionSerializer
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
+        """
+        Return filtered form submissions based on user role and query parameters.
+        Staff can see all submissions, others only see their own.
+        """
         user = self.request.user
         form_id = self.request.query_params.get('form')
         
@@ -297,6 +436,10 @@ class FormSubmissionViewSet(viewsets.ModelViewSet):
         return queryset
     
     def get_serializer_context(self):
+        """
+        Return context for serializer.
+        Includes the form object for validation.
+        """
         context = super().get_serializer_context()
         form_id = self.request.data.get('form')
         if form_id:
@@ -308,6 +451,10 @@ class FormSubmissionViewSet(viewsets.ModelViewSet):
         return context
     
     def perform_create(self, serializer):
+        """
+        Create a new form submission.
+        Validates that the user is assigned to the form and hasn't already submitted.
+        """
         # Check if user has already submitted this form and it's still active
         form_id = self.request.data.get('form')
         form = Form.objects.get(id=form_id)
@@ -327,15 +474,27 @@ class FormSubmissionViewSet(viewsets.ModelViewSet):
         serializer.save(submitted_by=self.request.user)
 
 class FacultyAvailabilityViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing faculty availability resources.
+    Provides CRUD operations for faculty member's availability for sessions.
+    """
     queryset = FacultyAvailability.objects.all()
     permission_classes = [permissions.IsAuthenticated]
     
     def get_serializer_class(self):
+        """
+        Return appropriate serializer based on action.
+        Uses create serializer for creating new availability.
+        """
         if self.action == 'create':
             return FacultyAvailabilityCreateSerializer
         return FacultyAvailabilitySerializer
     
     def get_queryset(self):
+        """
+        Return filtered faculty availability based on user role and query parameters.
+        Faculty can only see their own availability.
+        """
         user = self.request.user
         candidate_section_id = self.request.query_params.get('candidate_section')
         
@@ -351,16 +510,20 @@ class FacultyAvailabilityViewSet(viewsets.ModelViewSet):
         return queryset
     
     def perform_create(self, serializer):
-        # Add print for debugging
-        print(f"Creating faculty availability for user: {self.request.user.id}")
+        """
+        Create a new faculty availability.
+        Sets the faculty to the current user.
+        """
         serializer.save(faculty=self.request.user)
     
     def create(self, request, *args, **kwargs):
+        """
+        Create a new faculty availability.
+        Handles errors with a detailed response.
+        """
         try:
-            print(f"Create request data: {request.data}")
             return super().create(request, *args, **kwargs)
         except Exception as e:
-            print(f"Error creating faculty availability: {str(e)}")
             return Response(
                 {"detail": str(e)},
                 status=status.HTTP_400_BAD_REQUEST
@@ -368,6 +531,10 @@ class FacultyAvailabilityViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def import_slots(self, request, pk=None):
+        """
+        Import faculty availability as session time slots.
+        Creates time slots for the candidate section based on faculty availability.
+        """
         user = request.user
         if not user.is_admin:
             return Response({"error": "Only admins can import faculty availability"}, 
@@ -416,15 +583,22 @@ class FacultyAvailabilityViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_201_CREATED)
             
         except Exception as e:
-            print(f"Error importing faculty availability: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 class AvailabilityInvitationViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing availability invitation resources.
+    Provides CRUD operations for invitations sent to faculty for availability submissions.
+    """
     queryset = AvailabilityInvitation.objects.all()
     serializer_class = AvailabilityInvitationSerializer
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
+        """
+        Return filtered invitations based on user role.
+        Admins can see all invitations, faculty only see their own.
+        """
         user = self.request.user
         
         if user.is_admin:
@@ -434,12 +608,17 @@ class AvailabilityInvitationViewSet(viewsets.ModelViewSet):
         return AvailabilityInvitation.objects.filter(faculty=user)
     
     def perform_create(self, serializer):
+        """
+        Create a new availability invitation.
+        Sets the creator to the current user.
+        """
         serializer.save(created_by=self.request.user)
     
     @action(detail=False, methods=['post'])
     def invite_faculty(self, request):
         """
-        Invite multiple faculty members to submit availability for multiple candidates
+        Invite multiple faculty members to submit availability for multiple candidates.
+        Creates invitation records and sends emails if requested.
         """
         if not request.user.is_admin:
             return Response({"error": "Only admins can send invitations"}, 
@@ -449,11 +628,6 @@ class AvailabilityInvitationViewSet(viewsets.ModelViewSet):
         candidate_section_ids = request.data.get('candidate_section_ids', [])
         send_email = request.data.get('send_email', False)
         
-        # Add debug logging
-        print(f"invite_faculty request data: {request.data}")
-        print(f"faculty_ids: {faculty_ids}")
-        print(f"candidate_section_ids: {candidate_section_ids}")
-        
         if not faculty_ids or not candidate_section_ids:
             return Response({"error": "Both faculty_ids and candidate_section_ids are required"}, 
                            status=status.HTTP_400_BAD_REQUEST)
@@ -462,10 +636,6 @@ class AvailabilityInvitationViewSet(viewsets.ModelViewSet):
             faculty_users = User.objects.filter(id__in=faculty_ids, 
                                               user_type__in=['faculty', 'admin', 'superadmin'])
             candidate_sections = CandidateSection.objects.filter(id__in=candidate_section_ids)
-            
-            # Add more debug info
-            print(f"Found {faculty_users.count()} faculty users")
-            print(f"Found {candidate_sections.count()} candidate sections")
             
             invitations_created = 0
             
@@ -495,12 +665,12 @@ class AvailabilityInvitationViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_201_CREATED)
             
         except Exception as e:
-            print(f"Error in invite_faculty: {str(e)}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     
     def _send_invitation_email(self, invitation):
         """
-        Send an email to faculty member with a link to submit availability
+        Send an email to faculty member with a link to submit availability.
+        Creates and sends an email with the relevant information.
         """
         faculty = invitation.faculty
         candidate = invitation.candidate_section.candidate
@@ -533,4 +703,4 @@ Thank you!
                 fail_silently=False,
             )
         except Exception as e:
-            print(f"Error sending invitation email: {str(e)}")
+            logger.error(f"Error sending invitation email: {str(e)}")

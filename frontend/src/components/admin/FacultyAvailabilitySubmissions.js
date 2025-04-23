@@ -19,6 +19,11 @@ import {
 } from '@mui/material';
 import { facultyAvailabilityAPI, candidateSectionsAPI } from '../../api/api';
 
+/**
+ * Component for displaying faculty availability submissions for selected candidates.
+ * Allows admins to view which faculty members have submitted their availability
+ * for meeting with a particular candidate during their visit.
+ */
 const FacultyAvailabilitySubmissions = () => {
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -26,26 +31,38 @@ const FacultyAvailabilitySubmissions = () => {
   const [candidateSections, setCandidateSections] = useState([]);
   const [selectedSection, setSelectedSection] = useState('');
 
+  /**
+   * Fetch all candidate sections on component mount
+   */
   useEffect(() => {
     fetchCandidateSections();
   }, []);
 
+  /**
+   * Fetch faculty submissions whenever the selected section changes
+   */
   useEffect(() => {
     if (selectedSection) {
       fetchSubmissions(selectedSection);
     }
   }, [selectedSection]);
 
+  /**
+   * Fetches all candidate sections from the API
+   */
   const fetchCandidateSections = async () => {
     try {
       const response = await candidateSectionsAPI.getCandidateSections();
       setCandidateSections(response.data);
     } catch (err) {
       setError('Failed to load candidate sections');
-      console.error('Error loading candidate sections:', err);
     }
   };
 
+  /**
+   * Fetches faculty availability submissions for a specific candidate section
+   * @param {number} sectionId - The ID of the candidate section to fetch submissions for
+   */
   const fetchSubmissions = async (sectionId) => {
     setLoading(true);
     try {
@@ -54,12 +71,16 @@ const FacultyAvailabilitySubmissions = () => {
       setError('');
     } catch (err) {
       setError('Failed to load faculty availability submissions');
-      console.error('Error loading submissions:', err);
     } finally {
       setLoading(false);
     }
   };
 
+  /**
+   * Formats a date-time string to a localized string for display
+   * @param {string} dateTimeStr - ISO date-time string to format
+   * @returns {string} Formatted date-time string
+   */
   const formatDateTime = (dateTimeStr) => {
     return new Date(dateTimeStr).toLocaleString();
   };

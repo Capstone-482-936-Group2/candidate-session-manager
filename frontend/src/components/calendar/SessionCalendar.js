@@ -1,3 +1,7 @@
+/**
+ * Interactive calendar component for displaying and managing candidate interview sessions.
+ * Allows users to view, register for, and unregister from available time slots.
+ */
 import React, { useState } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -29,6 +33,16 @@ import {
 } from '@mui/icons-material';
 import './SessionCalendar.css';
 
+/**
+ * Calendar component that displays candidate interview sessions and manages registration.
+ * 
+ * @param {Object} props - Component props
+ * @param {Array} props.candidateSections - Array of candidate sections with time slots
+ * @param {Object} props.currentUser - Current authenticated user object
+ * @param {Function} props.onRegister - Callback function when user registers for a session
+ * @param {Function} props.onUnregister - Callback function when user unregisters from a session
+ * @returns {React.ReactNode} Calendar interface with registration dialogs
+ */
 const SessionCalendar = ({ candidateSections, currentUser, onRegister, onUnregister }) => {
   const theme = useTheme();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -38,26 +52,12 @@ const SessionCalendar = ({ candidateSections, currentUser, onRegister, onUnregis
 
   // Process candidate sections into calendar events
   const events = candidateSections.flatMap(section => {
-    // Debug - log all time slots with visibility status
-    console.log('Time slots for', section.candidate?.first_name, section.time_slots?.map(s => ({
-      id: s.id,
-      visible: s.is_visible,
-      start: s.start_time
-    })));
-
     return section.time_slots
       ?.filter(slot => {
         // Only show slots where is_visible is true
         return slot.is_visible !== false; // This handles undefined/null cases too
       })
       .map(slot => {
-        // Debug detailed information about each slot
-        console.log('Slot data:', {
-          id: slot.id,
-          is_visible: slot.is_visible,
-          hasProperty: 'is_visible' in slot
-        });
-        
         // Temporarily show all slots until backend is fixed
         const isFull = slot.attendees?.length >= slot.max_attendees;
         const isRegistered = slot.attendees?.some(attendee => attendee?.user?.id === currentUser?.id);
@@ -88,7 +88,12 @@ const SessionCalendar = ({ candidateSections, currentUser, onRegister, onUnregis
       }) || []; // Empty array fallback
   });
 
-  // Event render handling for consistent styling across all views
+  /**
+   * Applies consistent styling to calendar events across all views.
+   * Called by FullCalendar when each event is mounted in the DOM.
+   * 
+   * @param {Object} info - Event information provided by FullCalendar
+   */
   const eventDidMount = (info) => {
     // Ensure consistent styling across all views
     const { isFull, isRegistered } = info.event.extendedProps;
@@ -111,6 +116,12 @@ const SessionCalendar = ({ candidateSections, currentUser, onRegister, onUnregis
     info.el.style.boxShadow = '0 1px 3px rgba(0,0,0,0.12)';
   };
 
+  /**
+   * Handles click events on calendar time slots.
+   * Opens appropriate dialog based on slot status (available, full, registered).
+   * 
+   * @param {Object} info - Event information provided by FullCalendar
+   */
   const handleEventClick = (info) => {
     const { slot, isRegistered, isFull } = info.event.extendedProps;
     
@@ -131,6 +142,10 @@ const SessionCalendar = ({ candidateSections, currentUser, onRegister, onUnregis
     }
   };
 
+  /**
+   * Processes the user's confirmation in the dialog.
+   * Calls appropriate registration or unregistration handler.
+   */
   const handleDialogConfirm = () => {
     if (dialogAction === 'register' && selectedTimeSlot) {
       onRegister(selectedTimeSlot.id);
@@ -138,14 +153,26 @@ const SessionCalendar = ({ candidateSections, currentUser, onRegister, onUnregis
       onUnregister(selectedTimeSlot.id);
     }
     setDialogOpen(false);
+    setSelectedEvent(null);
+    setSelectedTimeSlot(null);
   };
 
+  /**
+   * Closes the dialog without taking any action.
+   */
   const handleDialogClose = () => {
     setDialogOpen(false);
     setSelectedEvent(null);
     setSelectedTimeSlot(null);
   };
 
+  /**
+   * Custom renderer for calendar event content.
+   * Formats the display of time slots on the calendar.
+   * 
+   * @param {Object} eventInfo - Event information provided by FullCalendar
+   * @returns {React.ReactNode} Custom event content
+   */
   const renderEventContent = (eventInfo) => {
     const { slot, attendees, isFull, isRegistered } = eventInfo.event.extendedProps;
     

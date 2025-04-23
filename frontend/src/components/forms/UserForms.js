@@ -1,3 +1,8 @@
+/**
+ * Component that handles all form-related functionality for users.
+ * Displays available forms, manages form submissions, and provides faculty availability scheduling.
+ * Includes different views for regular users and faculty members.
+ */
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -63,6 +68,12 @@ import {
 } from '../../api/api';
 import { availabilityInvitationAPI } from '../../api/api';
 
+/**
+ * UserForms component manages forms assigned to the user and handles special
+ * faculty availability scheduling functionality.
+ * 
+ * @returns {React.ReactNode} Forms management interface
+ */
 const UserForms = () => {
   const { currentUser } = useAuth();
   const [forms, setForms] = useState([]);
@@ -72,7 +83,7 @@ const UserForms = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   
-  // Faculty Availability states
+  // Faculty Availability state
   const [showFacultySection, setShowFacultySection] = useState(false);
   const [availabilityExpanded, setAvailabilityExpanded] = useState(false);
   const [candidateSections, setCandidateSections] = useState([]);
@@ -85,6 +96,9 @@ const UserForms = () => {
   const [existingSubmissions, setExistingSubmissions] = useState([]);
   const [showSubmissionDetails, setShowSubmissionDetails] = useState(null);
 
+  /**
+   * Fetch forms and set up faculty section if applicable
+   */
   useEffect(() => {
     fetchForms();
     
@@ -95,6 +109,9 @@ const UserForms = () => {
     }
   }, [currentUser]);
 
+  /**
+   * Fetches available forms for the user and their submission status
+   */
   const fetchForms = async () => {
     try {
       const response = await api.get('/forms/');
@@ -119,12 +136,15 @@ const UserForms = () => {
         setTimeout(() => navigate('/dashboard'), 3000);
       } else {
         setError('Failed to load forms');
-        console.error('Error loading forms:', err);
       }
     }
   };
 
-  // Function to fetch active candidate sections
+  /**
+   * Fetches candidate sections for faculty availability based on user type
+   * - For faculty: only fetches candidates they're invited for
+   * - For admins: fetches all active candidates
+   */
   const fetchCandidates = async () => {
     try {
       setLoading(true);
@@ -180,7 +200,6 @@ const UserForms = () => {
         setCandidateSections(allCandidateSections);
       }
     } catch (err) {
-      console.error('Error fetching candidates:', err);
       setSnackbar({
         open: true,
         message: 'Failed to load candidates',
@@ -191,6 +210,13 @@ const UserForms = () => {
     }
   };
 
+  /**
+   * Handles form view or navigation when a user clicks on a form
+   * - If already submitted, opens form in view mode
+   * - If not submitted, navigates to form submission page
+   * 
+   * @param {Object} form - The form to view or navigate to
+   */
   const handleViewForm = (form) => {
     if (submissions[form.id]) {
       // If the form has been submitted, show it in a dialog
@@ -201,10 +227,16 @@ const UserForms = () => {
     }
   };
 
+  /**
+   * Closes the form dialog
+   */
   const handleCloseDialog = () => {
     setSelectedForm(null);
   };
 
+  /**
+   * Handles post-submission updates by refreshing the submission status
+   */
   const handleFormSubmitted = async () => {
     handleCloseDialog();
     
@@ -222,15 +254,26 @@ const UserForms = () => {
     }
   };
 
-  // Faculty Availability Functions
+  /**
+   * Opens the candidate selection dialog for faculty availability
+   */
   const openCandidateDialog = () => {
     setCandidateDialogOpen(true);
   };
 
+  /**
+   * Closes the candidate selection dialog
+   */
   const closeCandidateDialog = () => {
     setCandidateDialogOpen(false);
   };
 
+  /**
+   * Handles candidate selection for faculty availability
+   * Sets the selected candidate and fetches existing submissions
+   * 
+   * @param {Object} candidateSection - The selected candidate section
+   */
   const selectCandidate = (candidateSection) => {
     setSelectedCandidate(candidateSection);
     setTimeSlots([]);
@@ -239,6 +282,12 @@ const UserForms = () => {
     fetchExistingSubmissions(candidateSection.id);
   };
 
+  /**
+   * Fetches existing availability submissions for a candidate
+   * Filters results to only show the current faculty member's submissions
+   * 
+   * @param {string|number} candidateSectionId - ID of the candidate section
+   */
   const fetchExistingSubmissions = async (candidateSectionId) => {
     try {
       setLoading(true);
@@ -255,6 +304,10 @@ const UserForms = () => {
     }
   };
 
+  /**
+   * Adds a new time slot to the faculty availability form
+   * Sets intelligent defaults based on candidate visit dates if available
+   */
   const handleAddTimeSlot = () => {
     // Get default start time (today at the next hour)
     const now = new Date();
@@ -278,18 +331,34 @@ const UserForms = () => {
     setTimeSlots([...timeSlots, { start_time: startTime, end_time: endTime }]);
   };
 
+  /**
+   * Removes a time slot from the faculty availability form
+   * 
+   * @param {number} index - Index of the time slot to remove
+   */
   const handleRemoveTimeSlot = (index) => {
     const updatedSlots = [...timeSlots];
     updatedSlots.splice(index, 1);
     setTimeSlots(updatedSlots);
   };
 
+  /**
+   * Updates a time slot's start or end time
+   * 
+   * @param {number} index - Index of the time slot to update
+   * @param {string} field - Field to update ('start_time' or 'end_time')
+   * @param {Date} value - New date/time value
+   */
   const handleTimeSlotChange = (index, field, value) => {
     const updatedSlots = [...timeSlots];
     updatedSlots[index] = { ...updatedSlots[index], [field]: value };
     setTimeSlots(updatedSlots);
   };
 
+  /**
+   * Validates and submits faculty availability
+   * Checks time slots are valid and within candidate visit dates
+   */
   const handleSubmitAvailability = async () => {
     if (!selectedCandidate) {
       setSnackbar({
@@ -363,11 +432,7 @@ const UserForms = () => {
         time_slots: formattedTimeSlots
       };
       
-      // Add debugging
-      console.log('Sending availability data:', JSON.stringify(availabilityData));
-      
-      const response = await facultyAvailabilityAPI.submitAvailability(availabilityData);
-      console.log('API response:', response);
+      await facultyAvailabilityAPI.submitAvailability(availabilityData);
       
       setSnackbar({
         open: true,
@@ -383,8 +448,6 @@ const UserForms = () => {
       fetchExistingSubmissions(selectedCandidate.id);
       
     } catch (err) {
-      console.error('Error submitting availability:', err);
-      console.error('Error response data:', err.response?.data);
       setSnackbar({
         open: true,
         message: 'Failed to submit availability: ' + (err.response?.data?.detail || err.message),
@@ -395,6 +458,11 @@ const UserForms = () => {
     }
   };
 
+  /**
+   * Deletes an existing availability submission
+   * 
+   * @param {string|number} id - ID of the submission to delete
+   */
   const handleDeleteSubmission = async (id) => {
     try {
       setLoading(true);
@@ -412,7 +480,6 @@ const UserForms = () => {
       }
       setShowSubmissionDetails(null);
     } catch (err) {
-      console.error('Error deleting submission:', err);
       setSnackbar({
         open: true,
         message: 'Failed to delete submission',
@@ -423,12 +490,19 @@ const UserForms = () => {
     }
   };
 
-  // Handle closing the snackbar
+  /**
+   * Closes the snackbar notification
+   */
   const handleCloseSnackbar = () => {
     setSnackbar(prev => ({ ...prev, open: false }));
   };
 
-  // Render form table content
+  /**
+   * Renders the forms grid with form cards
+   * Shows loading state, empty state, or grid of forms
+   * 
+   * @returns {React.ReactNode} Forms grid or appropriate loading/empty state
+   */
   const renderForms = () => {
     if (loading) {
       return (
@@ -558,6 +632,7 @@ const UserForms = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 6 }}>
+      {/* Page header and error messages */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" fontWeight={600} gutterBottom color="primary.dark">
           Your Forms
@@ -582,7 +657,7 @@ const UserForms = () => {
         </Alert>
       )}
       
-      {/* Faculty Availability Section - Now placed above other forms */}
+      {/* Faculty Availability Section */}
       {showFacultySection && (
         <Card 
           elevation={2} 
@@ -845,10 +920,10 @@ const UserForms = () => {
         </Card>
       )}
       
-      {/* Regular forms section now comes after faculty availability */}
+      {/* Regular forms section */}
       {renderForms()}
       
-      {/* Candidate Selection Dialog */}
+      {/* Dialogs and Snackbar */}
       <Dialog
         open={candidateDialogOpen}
         onClose={closeCandidateDialog}
@@ -919,7 +994,6 @@ const UserForms = () => {
         </DialogActions>
       </Dialog>
       
-      {/* Form View Dialog */}
       <Dialog
         open={Boolean(selectedForm)}
         onClose={handleCloseDialog}
@@ -952,7 +1026,8 @@ const UserForms = () => {
             <DialogContent sx={{ p: 0, overflow: 'hidden' }}>
               <FormSubmission 
                 formId={selectedForm.id}
-                readOnly={Boolean(submissions[selectedForm.id]?.is_completed)}
+                isViewOnly={Boolean(submissions[selectedForm.id]?.is_completed)}
+                submission={submissions[selectedForm.id]}
                 onSubmitted={handleFormSubmitted}
               />
             </DialogContent>
@@ -960,7 +1035,6 @@ const UserForms = () => {
         )}
       </Dialog>
       
-      {/* Snackbar for notifications */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={5000}

@@ -1,3 +1,8 @@
+"""
+Serializers for the candidate session management system.
+Converts model instances to JSON for API responses and validates incoming data for API requests.
+Each serializer corresponds to a model in the system and handles its representation and validation.
+"""
 from rest_framework import serializers
 from .models import Session, CandidateSection, SessionTimeSlot, SessionAttendee, TimeSlotTemplate, LocationType, Location, Form, FormSubmission, FormField, FormFieldOption, FacultyAvailability, AvailabilityTimeSlot, AvailabilityInvitation
 from users.serializers import UserSerializer
@@ -5,6 +10,10 @@ from users.models import User
 from datetime import datetime
 
 class SessionAttendeeSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the SessionAttendee model.
+    Includes user details and when they registered for a session.
+    """
     user = UserSerializer(read_only=True)
     
     class Meta:
@@ -12,6 +21,10 @@ class SessionAttendeeSerializer(serializers.ModelSerializer):
         fields = ['id', 'user', 'registered_at']
 
 class SessionTimeSlotSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the SessionTimeSlot model.
+    Includes computed fields for slot availability and attendees.
+    """
     available_slots = serializers.IntegerField(read_only=True)
     is_full = serializers.BooleanField(read_only=True)
     attendees = SessionAttendeeSerializer(many=True, read_only=True)
@@ -21,6 +34,10 @@ class SessionTimeSlotSerializer(serializers.ModelSerializer):
         fields = ['id', 'start_time', 'end_time', 'max_attendees', 'location', 'description', 'available_slots', 'is_full', 'attendees', 'is_visible']
 
 class CandidateSectionSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the CandidateSection model.
+    Includes candidate details and associated time slots.
+    """
     candidate = UserSerializer(read_only=True)
     time_slots = SessionTimeSlotSerializer(many=True, read_only=True)
     
@@ -35,6 +52,10 @@ class CandidateSectionSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at']
 
 class SessionSerializer(serializers.ModelSerializer):
+    """
+    Basic serializer for the Session model.
+    Used for list views and simpler representations.
+    """
     class Meta:
         model = Session
         fields = [
@@ -44,6 +65,10 @@ class SessionSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_at', 'created_by']
 
 class SessionDetailSerializer(serializers.ModelSerializer):
+    """
+    Detailed serializer for the Session model.
+    Includes candidate sections and creator details.
+    """
     candidate_sections = CandidateSectionSerializer(many=True, read_only=True)
     created_by = UserSerializer(read_only=True)
     
@@ -55,6 +80,10 @@ class SessionDetailSerializer(serializers.ModelSerializer):
         ]
 
 class TimeSlotDetailSerializer(serializers.ModelSerializer):
+    """
+    Detailed serializer for the SessionTimeSlot model.
+    Used for specific time slot views with attendee information.
+    """
     attendees = SessionAttendeeSerializer(many=True, read_only=True)
     available_slots = serializers.IntegerField(read_only=True)
     is_full = serializers.BooleanField(read_only=True)
@@ -64,6 +93,10 @@ class TimeSlotDetailSerializer(serializers.ModelSerializer):
         fields = ['id', 'start_time', 'end_time', 'max_attendees', 'location', 'description', 'available_slots', 'is_full', 'attendees']
 
 class CandidateSectionCreateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating CandidateSection instances.
+    Includes validation to ensure only admins can create sections.
+    """
     class Meta:
         model = CandidateSection
         fields = ['id', 'title', 'description', 'location', 'needs_transportation', 'candidate', 'session', 'arrival_date', 'leaving_date']
@@ -79,6 +112,10 @@ class CandidateSectionCreateSerializer(serializers.ModelSerializer):
         }
 
     def create(self, validated_data):
+        """
+        Custom create method to ensure only admins can create candidate sections.
+        Validates user permissions before creating.
+        """
         request = self.context.get('request')
         if not request or request.user.user_type not in ['admin', 'superadmin']:
             raise serializers.ValidationError("Only administrators can create candidate sections.")
@@ -86,6 +123,10 @@ class CandidateSectionCreateSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 class SessionCreateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating Session instances.
+    Includes validation and automatically sets the creator.
+    """
     class Meta:
         model = Session
         fields = ['id', 'title', 'description', 'start_date', 'end_date']
@@ -97,6 +138,10 @@ class SessionCreateSerializer(serializers.ModelSerializer):
         }
         
     def create(self, validated_data):
+        """
+        Custom create method to ensure only admins can create sessions.
+        Sets the creator to the requesting user.
+        """
         request = self.context.get('request')
         if not request or request.user.user_type not in ['admin', 'superadmin']:
             raise serializers.ValidationError("Only administrators can create sessions.")
@@ -105,21 +150,35 @@ class SessionCreateSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 class SessionTimeSlotCreateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating SessionTimeSlot instances.
+    """
     class Meta:
         model = SessionTimeSlot
         fields = ['id', 'candidate_section', 'start_time', 'end_time', 'max_attendees', 'location', 'description', 'is_visible']
 
 class LocationTypeSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the LocationType model.
+    Automatically sets the creator to the requesting user.
+    """
     class Meta:
         model = LocationType
         fields = ['id', 'name', 'description', 'created_by', 'created_at']
         read_only_fields = ['created_by', 'created_at']
         
     def create(self, validated_data):
+        """
+        Custom create method that sets the creator from the request context.
+        """
         validated_data['created_by'] = self.context['request'].user
         return super().create(validated_data)
 
 class LocationSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the Location model.
+    Includes location type name and automatically sets the creator.
+    """
     location_type_name = serializers.CharField(source='location_type.name', read_only=True)
     
     class Meta:
@@ -128,10 +187,17 @@ class LocationSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_by', 'created_at', 'location_type_name']
         
     def create(self, validated_data):
+        """
+        Custom create method that sets the creator from the request context.
+        """
         validated_data['created_by'] = self.context['request'].user
         return super().create(validated_data)
 
 class TimeSlotTemplateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the TimeSlotTemplate model.
+    Includes location and location type names, and sets the creator.
+    """
     location_name = serializers.CharField(source='location.name', read_only=True)
     location_type_name = serializers.CharField(source='location_type.name', read_only=True)
     
@@ -144,17 +210,28 @@ class TimeSlotTemplateSerializer(serializers.ModelSerializer):
         read_only_fields = ['created_by', 'created_at', 'location_name', 'location_type_name']
         
     def create(self, validated_data):
+        """
+        Custom create method that sets the creator from the request context.
+        """
         validated_data['created_by'] = self.context['request'].user
         return super().create(validated_data)
         fields = ['id', 'candidate_section', 'start_time', 'end_time', 'max_attendees', 'location', 'description']
 
 class FormFieldOptionSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the FormFieldOption model.
+    Represents options for select, radio, and checkbox form fields.
+    """
     class Meta:
         model = FormFieldOption
         fields = ['id', 'label', 'order']
         read_only_fields = ['id', 'created_at']
 
 class FormFieldSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the FormField model.
+    Includes nested options and validates field-specific requirements.
+    """
     options = FormFieldOptionSerializer(many=True, required=False)
     
     class Meta:
@@ -163,6 +240,10 @@ class FormFieldSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def validate(self, data):
+        """
+        Validates that field types have appropriate options.
+        Select, radio, and checkbox fields require options, while date_range should not have options.
+        """
         field_type = data.get('type')
         if field_type in ['select', 'radio', 'checkbox']:
             options = data.get('options', [])
@@ -179,6 +260,10 @@ class FormFieldSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
+        """
+        Custom create method for form fields that handles nested options.
+        Creates the field and its options in a single transaction.
+        """
         options_data = validated_data.pop('options', [])
         field = FormField.objects.create(**validated_data)
         
@@ -190,6 +275,10 @@ class FormFieldSerializer(serializers.ModelSerializer):
         return field
 
     def update(self, instance, validated_data):
+        """
+        Custom update method for form fields that handles nested options.
+        Updates the field and manages its options in a single transaction.
+        """
         options_data = validated_data.pop('options', [])
         
         # Update field attributes
@@ -224,11 +313,18 @@ class FormFieldSerializer(serializers.ModelSerializer):
         return instance
 
 class FormSubmissionFormSerializer(serializers.ModelSerializer):
+    """
+    Simple serializer for Form model when referenced in form submissions.
+    """
     class Meta:
         model = Form
         fields = ['id', 'title', 'description']
 
 class FormSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the Form model.
+    Includes nested fields and handles user assignments.
+    """
     form_fields = FormFieldSerializer(many=True, required=False)
     assigned_to_ids = serializers.ListField(child=serializers.IntegerField(), write_only=True, required=False)
     assigned_to = UserSerializer(many=True, read_only=True)
@@ -238,6 +334,10 @@ class FormSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'description', 'form_fields', 'assigned_to', 'assigned_to_ids', 'is_active']
     
     def create(self, validated_data):
+        """
+        Custom create method that handles nested form fields and user assignments.
+        Creates the form, its fields, and options in a single transaction.
+        """
         form_fields_data = validated_data.pop('form_fields', [])
         assigned_to_ids = validated_data.pop('assigned_to_ids', None)
         
@@ -259,6 +359,10 @@ class FormSerializer(serializers.ModelSerializer):
         return form
 
     def update(self, instance, validated_data):
+        """
+        Custom update method that handles nested form fields and user assignments.
+        Updates the form, its fields, and options in a single transaction.
+        """
         form_fields_data = validated_data.pop('form_fields', [])
         assigned_to_ids = validated_data.pop('assigned_to_ids', None)
         
@@ -303,6 +407,10 @@ class FormSerializer(serializers.ModelSerializer):
         return instance
 
 class FormSubmissionSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the FormSubmission model.
+    Handles form submissions with answer validation and uniqueness checks.
+    """
     submitted_by = UserSerializer(read_only=True)
     
     class Meta:
@@ -311,6 +419,10 @@ class FormSubmissionSerializer(serializers.ModelSerializer):
         read_only_fields = ['submitted_by', 'submitted_at', 'form_version']
 
     def validate_answers(self, value):
+        """
+        Validates form answers against form field requirements.
+        Ensures required fields are filled and validates specific field types.
+        """
         form = self.context.get('form')
         if not form:
             raise serializers.ValidationError("Form is required for validation")
@@ -346,6 +458,10 @@ class FormSubmissionSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
+        """
+        Custom create method that sets the submitter and validates uniqueness.
+        Ensures a user can only submit one completed form.
+        """
         form = self.context.get('form')
         if not form:
             raise serializers.ValidationError("Form is required")
@@ -362,6 +478,10 @@ class FormSubmissionSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
     def to_representation(self, instance):
+        """
+        Custom representation method that handles field ID mapping.
+        Maps stored answers to current field IDs for compatibility with form changes.
+        """
         data = super().to_representation(instance)
         
         # If viewing a submission, use the stored form version to map answers
@@ -386,11 +506,19 @@ class FormSubmissionSerializer(serializers.ModelSerializer):
         return data
 
 class AvailabilityTimeSlotSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the AvailabilityTimeSlot model.
+    Represents time slots when faculty are available.
+    """
     class Meta:
         model = AvailabilityTimeSlot
         fields = ['id', 'start_time', 'end_time']
 
 class FacultyAvailabilitySerializer(serializers.ModelSerializer):
+    """
+    Serializer for the FacultyAvailability model.
+    Includes time slots and faculty information.
+    """
     time_slots = AvailabilityTimeSlotSerializer(many=True, read_only=True)
     faculty_name = serializers.SerializerMethodField()
     faculty_email = serializers.SerializerMethodField()
@@ -403,15 +531,28 @@ class FacultyAvailabilitySerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'submitted_at', 'updated_at']
     
     def get_faculty_name(self, obj):
+        """
+        Method to get the faculty member's full name.
+        """
         return f"{obj.faculty.first_name} {obj.faculty.last_name}"
     
     def get_faculty_email(self, obj):
+        """
+        Method to get the faculty member's email.
+        """
         return obj.faculty.email
     
     def get_faculty_room(self, obj):
+        """
+        Method to get the faculty member's room number.
+        """
         return obj.faculty.room_number
 
 class FacultyAvailabilityCreateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating FacultyAvailability instances.
+    Handles nested time slots for faculty availability.
+    """
     time_slots = AvailabilityTimeSlotSerializer(many=True)
     
     class Meta:
@@ -419,6 +560,10 @@ class FacultyAvailabilityCreateSerializer(serializers.ModelSerializer):
         fields = ['candidate_section', 'notes', 'time_slots']
     
     def create(self, validated_data):
+        """
+        Custom create method that handles nested time slots.
+        Creates the availability record and its time slots in a single transaction.
+        """
         time_slots_data = validated_data.pop('time_slots')
         availability = FacultyAvailability.objects.create(**validated_data)
         
@@ -428,6 +573,10 @@ class FacultyAvailabilityCreateSerializer(serializers.ModelSerializer):
         return availability
 
 class AvailabilityInvitationSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the AvailabilityInvitation model.
+    Includes faculty and candidate details for availability requests.
+    """
     faculty_name = serializers.SerializerMethodField()
     candidate_name = serializers.SerializerMethodField()
     candidate_section_title = serializers.SerializerMethodField()
@@ -438,10 +587,19 @@ class AvailabilityInvitationSerializer(serializers.ModelSerializer):
                   'faculty_name', 'candidate_name', 'candidate_section_title']
     
     def get_faculty_name(self, obj):
+        """
+        Method to get the faculty member's full name.
+        """
         return f"{obj.faculty.first_name} {obj.faculty.last_name}"
     
     def get_candidate_name(self, obj):
+        """
+        Method to get the candidate's full name.
+        """
         return f"{obj.candidate_section.candidate.first_name} {obj.candidate_section.candidate.last_name}"
     
     def get_candidate_section_title(self, obj):
+        """
+        Method to get the candidate section's title.
+        """
         return obj.candidate_section.title

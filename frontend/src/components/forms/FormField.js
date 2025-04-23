@@ -1,3 +1,8 @@
+/**
+ * Reusable form field component that renders different input types based on field configuration.
+ * Supports text, textarea, select, radio, checkbox, date, and date range input types.
+ * Handles value changes and error states consistently across all field types.
+ */
 import React from 'react';
 import {
   TextField,
@@ -16,11 +21,32 @@ import {
   Typography
 } from '@mui/material';
 
+/**
+ * Renders an appropriate form field based on the field type configuration.
+ * 
+ * @param {Object} props - Component props
+ * @param {Object} props.field - Field configuration object containing field type, label, options, etc.
+ * @param {any} props.value - Current value of the field
+ * @param {Function} props.onChange - Handler function that receives field id and new value
+ * @param {string|null} props.error - Error message to display if field validation fails
+ * @returns {React.ReactNode} Rendered form field based on field type
+ */
 const FormField = ({ field, value, onChange, error }) => {
+  /**
+   * Handles standard input field changes
+   * @param {React.ChangeEvent<HTMLInputElement>} e - Change event
+   */
   const handleChange = (e) => {
     onChange(field.id, e.target.value);
   };
 
+  /**
+   * Handles date range field changes by updating either start or end date
+   * while preserving the other value
+   * 
+   * @param {React.ChangeEvent<HTMLInputElement>} e - Change event
+   * @param {boolean} isStartDate - Whether the change is for the start date (true) or end date (false)
+   */
   const handleDateRangeChange = (e, isStartDate) => {
     const newValue = { 
       ...value || {}, // Initialize empty object if value is null
@@ -29,9 +55,14 @@ const FormField = ({ field, value, onChange, error }) => {
     onChange(field.id, newValue);
   };
 
+  /**
+   * Renders the appropriate field component based on field type
+   * @returns {React.ReactNode} Field component
+   */
   const renderField = () => {
     switch (field.type) {
       case 'text':
+        // Single line text input
         return (
           <TextField
             fullWidth
@@ -43,6 +74,7 @@ const FormField = ({ field, value, onChange, error }) => {
           />
         );
       case 'textarea':
+        // Multi-line text input
         return (
           <TextField
             fullWidth
@@ -56,6 +88,7 @@ const FormField = ({ field, value, onChange, error }) => {
           />
         );
       case 'select':
+        // Dropdown selection input
         return (
           <FormControl fullWidth error={!!error}>
             <InputLabel>{field.label}</InputLabel>
@@ -74,6 +107,7 @@ const FormField = ({ field, value, onChange, error }) => {
           </FormControl>
         );
       case 'radio':
+        // Radio button group input
         return (
           <FormControl component="fieldset" error={!!error}>
             <FormLabel component="legend">{field.label}</FormLabel>
@@ -91,6 +125,7 @@ const FormField = ({ field, value, onChange, error }) => {
           </FormControl>
         );
       case 'checkbox':
+        // Multiple selection checkbox group
         return (
           <FormControl component="fieldset" error={!!error}>
             <FormLabel component="legend">{field.label}</FormLabel>
@@ -117,6 +152,7 @@ const FormField = ({ field, value, onChange, error }) => {
           </FormControl>
         );
       case 'date':
+        // Single date picker input
         return (
           <TextField
             fullWidth
@@ -130,6 +166,7 @@ const FormField = ({ field, value, onChange, error }) => {
           />
         );
       case 'date_range':
+        // Date range with start and end date inputs
         return (
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
             <TextField
@@ -169,4 +206,6 @@ const FormField = ({ field, value, onChange, error }) => {
       {renderField()}
     </Box>
   );
-}; 
+};
+
+export default FormField; 

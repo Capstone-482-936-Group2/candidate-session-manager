@@ -1,22 +1,43 @@
+/**
+ * Authentication context provider that manages user authentication state.
+ * Handles login/logout, user role determination, and initial setup flows for different user types.
+ * Stores authentication state in localStorage for persistence across page refreshes.
+ */
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { authAPI } from '../api/api';
 import CandidateSetupForm from '../components/candidate/CandidateSetupForm';
 import RoomSetupDialog from '../components/auth/RoomSetupDialog';
 
+// Create authentication context
 const AuthContext = createContext();
 
+/**
+ * Custom hook to access the auth context from any component
+ * @returns {Object} Authentication context value
+ */
 export const useAuth = () => useContext(AuthContext);
 
+/**
+ * Authentication provider component that wraps the application.
+ * Manages user state, authentication, and initial setup flows.
+ * 
+ * @param {Object} props - Component props
+ * @param {React.ReactNode} props.children - Child components to render
+ * @returns {React.ReactNode} Auth provider with children
+ */
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Add states for setup windows
+  // Setup dialog states
   const [showCandidateSetup, setShowCandidateSetup] = useState(false);
   const [showRoomSetup, setShowRoomSetup] = useState(false);
 
-  // Function to store auth state in localStorage
+  /**
+   * Stores authentication state in localStorage
+   * @param {Object|null} user - User object to store or null to clear
+   */
   const storeAuthState = (user) => {
     if (user) {
       localStorage.setItem('authState', JSON.stringify(user));
@@ -25,7 +46,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Function to load auth state from localStorage
+  /**
+   * Loads authentication state from localStorage
+   * @returns {Object|null} Stored user object or null
+   */
   const loadAuthState = () => {
     const storedAuth = localStorage.getItem('authState');
     if (storedAuth) {
@@ -39,7 +63,12 @@ export const AuthProvider = ({ children }) => {
     return null;
   };
 
-  // Function to check if user needs setup
+  /**
+   * Checks if the user needs to complete setup based on their user type
+   * Shows appropriate setup dialog if needed
+   * 
+   * @param {Object} user - User object to check
+   */
   const checkUserSetupNeeds = (user) => {
     if (!user || user.has_completed_setup) return;
     
@@ -50,6 +79,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Effect to load user on mount and listen for storage changes
+   * Ensures authentication state is synced across tabs
+   */
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -92,6 +125,13 @@ export const AuthProvider = ({ children }) => {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
+  /**
+   * Handles login with Google OAuth
+   * 
+   * @param {string} accessToken - Google OAuth access token
+   * @returns {Object} User data on successful login
+   * @throws {Error} On login failure
+   */
   const loginWithGoogle = async (accessToken) => {
     setError(null);
     try {
@@ -107,6 +147,12 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Handles user logout
+   * Clears user data and setup states
+   * 
+   * @throws {Error} On logout failure
+   */
   const logout = async () => {
     try {
       await authAPI.logout();
@@ -120,6 +166,13 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  /**
+   * Handles user registration
+   * 
+   * @param {Object} userData - User registration data
+   * @returns {Object} Registration response data
+   * @throws {Error} On registration failure
+   */
   const register = async (userData) => {
     setError(null);
     try {
@@ -131,7 +184,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Handler for room setup completion
+  /**
+   * Updates user data after room setup completion
+   * 
+   * @param {string} roomNumber - Room/office number entered by the user
+   */
   const handleRoomSetupComplete = (roomNumber) => {
     if (currentUser) {
       setCurrentUser({
@@ -148,6 +205,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Context value containing authentication state and functions
   const value = {
     currentUser,
     setCurrentUser,
@@ -169,7 +227,7 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider value={value}>
       {children}
       
-      {/* Show setup dialogs when needed */}
+      {/* Setup dialogs shown conditionally based on user type and setup status */}
       {showCandidateSetup && currentUser && <CandidateSetupForm />}
       {showRoomSetup && currentUser && (
         <RoomSetupDialog 

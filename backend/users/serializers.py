@@ -1,9 +1,16 @@
+"""
+Serializers for user models in the candidate session management system.
+Defines serialization, deserialization, and validation logic for User and CandidateProfile models.
+"""
 from rest_framework import serializers
 from .models import User, CandidateProfile
 from django.conf import settings
 
-# Define CandidateProfileSerializer first
 class CandidateProfileSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the CandidateProfile model.
+    Handles candidate-specific profile information and includes computed URL for headshot.
+    """
     headshot_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -38,22 +45,45 @@ class CandidateProfileSerializer(serializers.ModelSerializer):
         ]
 
     def get_headshot_url(self, obj):
+        """
+        Get the URL for the candidate's headshot image.
+        Returns None if no headshot is uploaded.
+        
+        Args:
+            obj: The CandidateProfile instance
+            
+        Returns:
+            URL string or None
+        """
         if obj.headshot:
             return obj.headshot.url
         return None
 
-# Then define UserSerializer that uses it
 class UserSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the User model.
+    Includes nested candidate profile data and handles permission-based field filtering.
+    """
     candidate_profile = CandidateProfileSerializer(read_only=True)
 
     class Meta:
         model = User
         fields = ['id', 'email', 'username', 'first_name', 'last_name', 
-                 'user_type', 'room_number', 'has_completed_setup', 
+                 'user_type', 'room_number', 'available_for_meetings', 'has_completed_setup', 
                  'candidate_profile']
         read_only_fields = ['id']
 
     def to_representation(self, instance):
+        """
+        Custom representation method with permission-based field filtering.
+        Limits visible fields based on authentication status and user role.
+        
+        Args:
+            instance: The User instance being serialized
+            
+        Returns:
+            Dictionary with appropriate user data based on permissions
+        """
         data = super().to_representation(instance)
         request = self.context.get('request')
         is_superadmin = self.context.get('is_superadmin', False)
@@ -78,13 +108,26 @@ class UserSerializer(serializers.ModelSerializer):
             
         return data
 
-# Keep the existing RegisterSerializer and UserUpdateSerializer
 class RegisterSerializer(serializers.ModelSerializer):
+    """
+    Serializer for user registration.
+    Creates new user accounts with default settings.
+    """
     class Meta:
         model = User
         fields = ['email', 'username', 'first_name', 'last_name', 'user_type', 'room_number', 'has_completed_setup']
     
     def create(self, validated_data):
+        """
+        Create a new user from validated data.
+        Uses email as username for consistency.
+        
+        Args:
+            validated_data: Dictionary of validated user data
+            
+        Returns:
+            Newly created User instance
+        """
         # Create the user without a password
         user = User.objects.create_user(
             username=validated_data['email'],  # Use email as username
@@ -98,8 +141,12 @@ class RegisterSerializer(serializers.ModelSerializer):
         return user
 
 class UserUpdateSerializer(serializers.ModelSerializer):
+    """
+    Serializer for updating user information.
+    Prevents modification of email and username fields.
+    """
     class Meta:
         model = User
         fields = ['id', 'email', 'username', 'first_name', 'last_name', 
-                 'user_type', 'room_number', 'has_completed_setup']
+                 'user_type', 'room_number', 'has_completed_setup', 'available_for_meetings']
         read_only_fields = ['email', 'username']

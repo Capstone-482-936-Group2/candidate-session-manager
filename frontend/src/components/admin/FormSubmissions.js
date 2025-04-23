@@ -17,6 +17,13 @@ import {
 } from '@mui/material';
 import api from '../../api/api';
 
+/**
+ * Component to display all submissions for a specific form.
+ * Shows submission details in a table format with field values and metadata.
+ * 
+ * @param {Object} props - Component props
+ * @param {string|number} props.formId - ID of the form to show submissions for
+ */
 const FormSubmissions = ({ formId }) => {
   const [submissions, setSubmissions] = useState([]);
   const [form, setForm] = useState(null);
@@ -24,6 +31,12 @@ const FormSubmissions = ({ formId }) => {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(true);
 
+  /**
+   * Formats a date range value for display in the submissions table
+   * 
+   * @param {Object|string} value - Date range value to format
+   * @returns {string} Formatted date range string
+   */
   const formatDateRange = (value) => {
     if (!value) return '-';
     if (typeof value === 'string') return value;
@@ -31,6 +44,13 @@ const FormSubmissions = ({ formId }) => {
     return `${new Date(value.startDate + 'T00:00:00').toLocaleDateString()} - ${new Date(value.endDate + 'T00:00:00').toLocaleDateString()}`;
   };
 
+  /**
+   * Formats an answer based on the field type for display in the submissions table
+   * 
+   * @param {Object} field - Form field definition
+   * @param {any} value - Answer value to format
+   * @returns {string} Formatted answer value
+   */
   const formatAnswer = (field, value) => {
     if (!value) return '-';
     
@@ -46,20 +66,29 @@ const FormSubmissions = ({ formId }) => {
     }
   };
 
+  /**
+   * Fetch form details and submissions when formId changes
+   */
   useEffect(() => {
     fetchForm();
     fetchSubmissions();
   }, [formId]);
 
+  /**
+   * Fetches the form definition from the API
+   */
   const fetchForm = async () => {
     try {
       const response = await api.get(`/forms/${formId}/`);
       setForm(response.data);
     } catch (err) {
-      console.error('Error loading form:', err);
+      setError('Failed to load form details');
     }
   };
 
+  /**
+   * Fetches all submissions for the current form from the API
+   */
   const fetchSubmissions = async () => {
     try {
       const response = await api.get(`/form-submissions/?form=${formId}`);
@@ -67,7 +96,6 @@ const FormSubmissions = ({ formId }) => {
       setLoading(false);
     } catch (err) {
       setError('Failed to load submissions');
-      console.error('Error loading submissions:', err);
       setLoading(false);
     }
   };

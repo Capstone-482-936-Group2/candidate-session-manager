@@ -1,3 +1,8 @@
+/**
+ * Faculty dashboard component that provides an interface for faculty members to view and interact with
+ * candidate interview sessions. Faculty can browse recruiting seasons, view candidate details,
+ * and register/unregister for available interview time slots.
+ */
 import React, { useState, useEffect } from 'react';
 import { 
   Container, 
@@ -47,6 +52,12 @@ import { format, parseISO } from 'date-fns';
 import { seasonsAPI, timeSlotsAPI, candidateSectionsAPI } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 
+/**
+ * Faculty dashboard component that manages the faculty view of candidate sessions.
+ * Handles season selection, candidate viewing, and time slot registration.
+ * 
+ * @returns {React.ReactNode} Faculty dashboard interface
+ */
 const FacultyDashboard = () => {
   const [seasons, setSeasons] = useState([]);
   const [selectedSeason, setSelectedSeason] = useState(null);
@@ -59,6 +70,9 @@ const FacultyDashboard = () => {
   const [attendeesMenuAnchor, setAttendeesMenuAnchor] = useState(null);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState(null);
 
+  /**
+   * Fetches all recruiting seasons when component mounts
+   */
   useEffect(() => {
     const fetchSeasons = async () => {
       try {
@@ -76,6 +90,12 @@ const FacultyDashboard = () => {
     fetchSeasons();
   }, []);
 
+  /**
+   * Fetches candidate sections for a specific season.
+   * Called when a faculty member selects a recruiting season.
+   * 
+   * @param {string|number} seasonId - ID of the selected season
+   */
   const fetchCandidateSections = async (seasonId) => {
     try {
       setLoading(true);
@@ -90,6 +110,12 @@ const FacultyDashboard = () => {
     }
   };
 
+  /**
+   * Handles registration for a time slot.
+   * Updates the UI and displays a success/error message.
+   * 
+   * @param {string|number} timeSlotId - ID of the time slot to register for
+   */
   const handleRegister = async (timeSlotId) => {
     try {
       await timeSlotsAPI.registerForTimeSlot(timeSlotId);
@@ -113,6 +139,12 @@ const FacultyDashboard = () => {
     }
   };
 
+  /**
+   * Handles unregistration from a time slot.
+   * Updates the UI and displays a success/error message.
+   * 
+   * @param {string|number} timeSlotId - ID of the time slot to unregister from
+   */
   const handleUnregister = async (timeSlotId) => {
     try {
       await timeSlotsAPI.unregisterFromTimeSlot(timeSlotId);
@@ -136,20 +168,36 @@ const FacultyDashboard = () => {
     }
   };
 
+  /**
+   * Checks if the current user is registered for a time slot.
+   * 
+   * @param {Object} timeSlot - Time slot object to check
+   * @returns {boolean} Whether the user is registered for the time slot
+   */
   const isRegistered = (timeSlot) => {
     return timeSlot.attendees?.some(attendee => attendee?.user?.id === currentUser?.id) || false;
   };
 
+  /**
+   * Opens the attendees menu for a specific time slot.
+   * 
+   * @param {React.MouseEvent} event - Event that triggered the menu
+   * @param {Object} timeSlot - Time slot to show attendees for
+   */
   const handleOpenAttendeesMenu = (event, timeSlot) => {
     setAttendeesMenuAnchor(event.currentTarget);
     setSelectedTimeSlot(timeSlot);
   };
 
+  /**
+   * Closes the attendees menu.
+   */
   const handleCloseAttendeesMenu = () => {
     setAttendeesMenuAnchor(null);
     setSelectedTimeSlot(null);
   };
 
+  // Display loading spinner when initially loading seasons
   if (loading && !selectedSeason) {
     return (
       <Box 
@@ -167,6 +215,7 @@ const FacultyDashboard = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 6 }}>
+      {/* Dashboard header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" fontWeight={600} gutterBottom color="primary.dark">
           Faculty Dashboard
@@ -176,6 +225,7 @@ const FacultyDashboard = () => {
         </Typography>
       </Box>
 
+      {/* Status message displays */}
       {statusMessage && (
         <Alert 
           severity={statusMessage.severity} 
@@ -204,7 +254,9 @@ const FacultyDashboard = () => {
         </Alert>
       )}
 
+      {/* Either display season selection or candidate sections based on user navigation state */}
       {!selectedSeason ? (
+        // Season selection view
         <>
           <Typography variant="h6" paragraph fontWeight={500} color="text.secondary">
             Select a recruiting season to view available candidate sections.
@@ -287,6 +339,7 @@ const FacultyDashboard = () => {
           </Grid>
         </>
       ) : (
+        // Candidate sections view after season selection
         <>
           <Box sx={{ 
             mb: 4,
@@ -561,7 +614,7 @@ const FacultyDashboard = () => {
         </>
       )}
 
-      {/* Attendees Menu */}
+      {/* Attendees Menu - Displays registered users for a time slot */}
       <Menu
         anchorEl={attendeesMenuAnchor}
         open={Boolean(attendeesMenuAnchor)}
@@ -580,6 +633,7 @@ const FacultyDashboard = () => {
           </Typography>
         </Box>
         
+        {/* List of attendees or empty state */}
         {selectedTimeSlot && selectedTimeSlot.attendees?.length > 0 ? (
           selectedTimeSlot.attendees.map(attendee => (
             <MenuItem key={attendee.id}>

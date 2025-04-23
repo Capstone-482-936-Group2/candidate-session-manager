@@ -3,13 +3,18 @@ import {
   Paper, Typography, Table, TableBody, TableCell, TableContainer, 
   TableHead, TableRow, Button, Dialog, DialogActions, DialogContent, 
   DialogTitle, FormControl, InputLabel, Select, MenuItem, TextField,
-  Snackbar, Alert, Box, IconButton, Chip, Tooltip, useTheme, alpha, Avatar, Divider, Grid, CircularProgress
+  Snackbar, Alert, Box, IconButton, Chip, Tooltip, useTheme, alpha, Avatar, Divider, Grid, CircularProgress, FormControlLabel, Checkbox
 } from '@mui/material';
 import { Delete as DeleteIcon, Edit as EditIcon, Visibility as VisibilityIcon, PersonAdd as PersonAddIcon, AdminPanelSettings as AdminIcon, School as FacultyIcon, Person as CandidateIcon } from '@mui/icons-material';
 import { usersAPI } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 import CandidateProfileDialog from './CandidateProfileDialog';
 
+/**
+ * Component for managing users in the system.
+ * Allows administrators to view, add, edit, and delete users.
+ * Users are separated into staff members and candidates.
+ */
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -26,15 +31,22 @@ const UserManagement = () => {
     first_name: '',
     last_name: '',
     room_number: '',
+    available_for_meetings: true,
   });
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const theme = useTheme();
 
+  /**
+   * Fetch all users when component mounts
+   */
   useEffect(() => {
     fetchUsers();
   }, []);
 
+  /**
+   * Fetches all users from the API
+   */
   const fetchUsers = async () => {
     setLoading(true);
     try {
@@ -42,12 +54,15 @@ const UserManagement = () => {
       setUsers(response.data);
     } catch (err) {
       setError('Failed to load users');
-      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
+  /**
+   * Opens the dialog for adding a new user or editing an existing one
+   * @param {Object|null} user - The user to edit, or null if adding a new user
+   */
   const handleOpenDialog = (user = null) => {
     if (user) {
       setSelectedUser(user);
@@ -58,6 +73,7 @@ const UserManagement = () => {
         first_name: user.first_name || '',
         last_name: user.last_name || '',
         room_number: user.room_number || '',
+        available_for_meetings: user.available_for_meetings === false ? false : true
       });
     } else {
       setSelectedUser(null);
@@ -68,11 +84,15 @@ const UserManagement = () => {
         first_name: '',
         last_name: '',
         room_number: '',
+        available_for_meetings: true,
       });
     }
     setDialogOpen(true);
   };
 
+  /**
+   * Closes the add/edit user dialog and resets form data
+   */
   const handleCloseDialog = () => {
     setDialogOpen(false);
     setSelectedUser(null);
@@ -82,13 +102,21 @@ const UserManagement = () => {
       first_name: '',
       last_name: '',
       room_number: '',
+      available_for_meetings: true,
     });
   };
 
+  /**
+   * Handles changes to the user role in the dialog
+   * @param {Object} e - The event object
+   */
   const handleRoleChange = (e) => {
     setNewRole(e.target.value);
   };
 
+  /**
+   * Updates a user's role
+   */
   const handleUpdateRole = async () => {
     if (!selectedUser || newRole === selectedUser.user_type) {
       handleCloseDialog();
@@ -115,20 +143,33 @@ const UserManagement = () => {
     }
   };
 
+  /**
+   * Closes the snackbar notification
+   */
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
+  /**
+   * Opens the delete confirmation dialog for a user
+   * @param {Object} user - The user to delete
+   */
   const handleDeleteClick = (user) => {
     setSelectedUser(user);
     setDeleteDialogOpen(true);
   };
 
+  /**
+   * Closes the delete confirmation dialog
+   */
   const handleCloseDeleteDialog = () => {
     setDeleteDialogOpen(false);
     setSelectedUser(null);
   };
 
+  /**
+   * Deletes the selected user
+   */
   const handleDeleteUser = async () => {
     if (!selectedUser) {
       handleCloseDeleteDialog();
@@ -155,25 +196,33 @@ const UserManagement = () => {
     }
   };
 
+  /**
+   * Handles form submission for creating or updating a user
+   * @param {Object} e - The event object
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSnackbar({ ...snackbar, open: false });
 
     try {
+      const formattedData = {
+        ...formData,
+        available_for_meetings: formData.available_for_meetings === true
+      };
+
       if (selectedUser) {
-        await usersAPI.updateUser(selectedUser.id, formData);
+        await usersAPI.updateUser(selectedUser.id, formattedData);
         setSnackbar({
           open: true,
           message: 'User updated successfully',
           severity: 'success'
         });
       } else {
-        // When creating a new user, include only necessary fields
         const userData = {
-          ...formData,
-          username: formData.email, // Use email as username
-          user_type: formData.user_type || 'candidate' // Ensure user_type is set
+          ...formattedData,
+          username: formattedData.email,
+          user_type: formattedData.user_type || 'candidate',
         };
         await usersAPI.addUser(userData);
         setSnackbar({
@@ -185,7 +234,6 @@ const UserManagement = () => {
       handleCloseDialog();
       fetchUsers();
     } catch (err) {
-      console.error('Error saving user:', err);
       const errorMessage = err.response?.data?.error || 
                           (err.response?.data && Object.values(err.response.data).join(', ')) || 
                           'Failed to save user';
@@ -202,6 +250,10 @@ const UserManagement = () => {
   const candidates = users.filter(user => user.user_type === 'candidate');
   const staff = users.filter(user => user.user_type !== 'candidate');
 
+  /**
+   * Opens the candidate profile dialog to view details
+   * @param {Object} candidate - The candidate whose profile to view
+   */
   const handleViewProfile = (candidate) => {
     setSelectedCandidate(candidate);
     setProfileDialogOpen(true);
@@ -280,6 +332,7 @@ const UserManagement = () => {
                 <TableCell sx={{ fontWeight: 600, py: 2 }}>Name</TableCell>
                 <TableCell sx={{ fontWeight: 600, py: 2 }}>Role</TableCell>
                 <TableCell sx={{ fontWeight: 600, py: 2 }}>Room Number</TableCell>
+                <TableCell sx={{ fontWeight: 600, py: 2 }}>Available for Meetings</TableCell>
                 <TableCell sx={{ fontWeight: 600, py: 2 }}>Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -307,6 +360,14 @@ const UserManagement = () => {
                     />
                   </TableCell>
                   <TableCell>{user.room_number}</TableCell>
+                  <TableCell>
+                    <Chip 
+                      label={user.available_for_meetings !== false ? "Available" : "Not Available"}
+                      color={user.available_for_meetings !== false ? "success" : "default"}
+                      size="small"
+                      sx={{ borderRadius: 1.5 }}
+                    />
+                  </TableCell>
                   <TableCell>
                     <Tooltip title="Edit User">
                       <IconButton 
@@ -338,7 +399,7 @@ const UserManagement = () => {
               ))}
               {staff.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 3 }}>
+                  <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
                     <Typography color="text.secondary">No staff members found</Typography>
                   </TableCell>
                 </TableRow>
@@ -528,22 +589,47 @@ const UserManagement = () => {
                   >
                     <MenuItem value="candidate">Candidate</MenuItem>
                     <MenuItem value="faculty">Faculty</MenuItem>
-                    {isSuperAdmin && <MenuItem value="admin">Admin</MenuItem>}
+                    {isSuperAdmin && (
+                      <>
+                        <MenuItem value="admin">Admin</MenuItem>
+                        <MenuItem value="superadmin">Super Admin</MenuItem>
+                      </>
+                    )}
                   </Select>
                 </FormControl>
               </Grid>
               {formData.user_type !== 'candidate' && (
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label="Room Number"
-                    name="room_number"
-                    value={formData.room_number}
-                    onChange={(e) => setFormData({ ...formData, room_number: e.target.value })}
-                    fullWidth
-                    margin="normal"
-                    sx={{ mt: 0 }}
-                  />
-                </Grid>
+                <>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Room Number"
+                      name="room_number"
+                      value={formData.room_number}
+                      onChange={(e) => setFormData({ ...formData, room_number: e.target.value })}
+                      fullWidth
+                      margin="normal"
+                      sx={{ mt: 0 }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={formData.available_for_meetings === true}
+                          onChange={(e) => {
+                            const newValue = e.target.checked;
+                            setFormData({
+                              ...formData,
+                              available_for_meetings: newValue
+                            });
+                          }}
+                          name="available_for_meetings"
+                        />
+                      }
+                      label="Available for candidate meetings"
+                    />
+                  </Grid>
+                </>
               )}
             </Grid>
           </DialogContent>
