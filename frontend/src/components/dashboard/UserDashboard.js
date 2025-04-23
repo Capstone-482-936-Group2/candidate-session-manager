@@ -1,3 +1,7 @@
+/**
+ * User dashboard component that serves as the main landing page after login.
+ * Displays quick access links and recent user activity.
+ */
 import React from 'react';
 import {
   Box,
@@ -20,6 +24,12 @@ import {
 } from '@mui/icons-material';
 import { Link as RouterLink } from 'react-router-dom';
 
+/**
+ * UserDashboard component displays a welcoming interface with quick access links
+ * and a section for recent user activity.
+ * 
+ * @returns {React.ReactNode} Dashboard layout with actions and activity sections
+ */
 const UserDashboard = () => {
   return (
     <Box sx={{ p: 3 }}>
@@ -28,12 +38,14 @@ const UserDashboard = () => {
       </Typography>
 
       <Grid container spacing={3}>
+        {/* Quick Actions Section */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
               Quick Actions
             </Typography>
             <List>
+              {/* Forms Navigation Link */}
               <ListItem
                 button
                 component={RouterLink}
@@ -48,6 +60,8 @@ const UserDashboard = () => {
                   secondary="Fill out forms assigned to you"
                 />
               </ListItem>
+              
+              {/* Profile Navigation Link */}
               <ListItem
                 button
                 component={RouterLink}
@@ -66,6 +80,7 @@ const UserDashboard = () => {
           </Paper>
         </Grid>
 
+        {/* Recent Activity Section */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>

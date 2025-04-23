@@ -1,3 +1,8 @@
+/**
+ * Faculty availability form component that allows faculty members to indicate when they are
+ * available to meet with candidates during the interview process.
+ * Supports selecting recruiting seasons, candidates, and submitting multiple time slots.
+ */
 import React, { useState, useEffect } from 'react';
 import { 
   Container, Typography, Paper, Box, Button, TextField, 
@@ -15,6 +20,14 @@ import { alpha } from '@mui/material/styles';
 import { useTheme } from '@mui/material/styles';
 import { Flight as FlightIcon } from '@mui/icons-material';
 
+/**
+ * Component to display candidate visit information including arrival and departure dates.
+ * Shows available days for meetings based on the candidate's visit period.
+ * 
+ * @param {Object} props - Component props
+ * @param {Object} props.candidateSection - Candidate section data containing visit dates
+ * @returns {React.ReactNode} Candidate visit information display
+ */
 const CandidateDateInfo = ({ candidateSection }) => {
   const theme = useTheme();
   
@@ -107,6 +120,14 @@ const CandidateDateInfo = ({ candidateSection }) => {
   );
 };
 
+/**
+ * Helper function to generate an array of dates between start and end dates (inclusive).
+ * Used to show available days during the candidate's visit.
+ * 
+ * @param {Date} startDate - Starting date
+ * @param {Date} endDate - Ending date
+ * @returns {Array<Date>} Array of dates in the range
+ */
 const getDatesInRange = (startDate, endDate) => {
   const dates = [];
   let currentDate = new Date(startDate);
@@ -124,6 +145,13 @@ const getDatesInRange = (startDate, endDate) => {
   return dates;
 };
 
+/**
+ * Faculty availability form component that guides faculty through the process of
+ * submitting their availability for candidate meetings. Handles season selection,
+ * candidate selection, and time slot management with validation.
+ * 
+ * @returns {React.ReactNode} Complete faculty availability form
+ */
 const FacultyAvailabilityForm = () => {
   const { currentUser } = useAuth();
   const [seasons, setSeasons] = useState([]);
@@ -137,6 +165,10 @@ const FacultyAvailabilityForm = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [existingSubmissions, setExistingSubmissions] = useState([]);
   
+  /**
+   * Fetches active recruiting seasons when component mounts.
+   * Filters to only show current and future seasons.
+   */
   useEffect(() => {
     const fetchSeasons = async () => {
       try {
@@ -159,6 +191,12 @@ const FacultyAvailabilityForm = () => {
     fetchSeasons();
   }, []);
 
+  /**
+   * Fetches candidate sections for a selected season.
+   * Updates state with the fetched candidates and the selected season.
+   * 
+   * @param {string|number} seasonId - ID of the selected season
+   */
   const fetchCandidateSections = async (seasonId) => {
     try {
       setLoading(true);
@@ -174,6 +212,12 @@ const FacultyAvailabilityForm = () => {
     }
   };
 
+  /**
+   * Fetches existing availability submissions for the selected candidate.
+   * Filters results to only show submissions by the current faculty member.
+   * 
+   * @param {string|number} candidateSectionId - ID of the selected candidate section
+   */
   const fetchExistingSubmissions = async (candidateSectionId) => {
     try {
       setLoading(true);
@@ -190,6 +234,12 @@ const FacultyAvailabilityForm = () => {
     }
   };
 
+  /**
+   * Handles candidate selection.
+   * Resets the form and fetches existing submissions for the selected candidate.
+   * 
+   * @param {Object} candidateSection - The selected candidate section
+   */
   const handleSelectCandidate = (candidateSection) => {
     setSelectedCandidate(candidateSection);
     setTimeSlots([]);
@@ -197,6 +247,10 @@ const FacultyAvailabilityForm = () => {
     fetchExistingSubmissions(candidateSection.id);
   };
 
+  /**
+   * Adds a new time slot to the form.
+   * Sets intelligent defaults based on candidate arrival/departure dates.
+   */
   const handleAddTimeSlot = () => {
     // Get default start time (today at the next hour)
     const now = new Date();
@@ -238,12 +292,25 @@ const FacultyAvailabilityForm = () => {
     setTimeSlots([...timeSlots, { start_time: startTime, end_time: endTime }]);
   };
 
+  /**
+   * Removes a time slot from the form.
+   * 
+   * @param {number} index - Index of the time slot to remove
+   */
   const handleRemoveTimeSlot = (index) => {
     const updatedSlots = [...timeSlots];
     updatedSlots.splice(index, 1);
     setTimeSlots(updatedSlots);
   };
 
+  /**
+   * Updates a time slot's start or end time.
+   * Validates the time slot immediately after update.
+   * 
+   * @param {number} index - Index of the time slot to update
+   * @param {string} field - Field to update ('start_time' or 'end_time')
+   * @param {Date} value - New date/time value
+   */
   const handleTimeSlotChange = (index, field, value) => {
     const updatedSlots = [...timeSlots];
     updatedSlots[index] = { ...updatedSlots[index], [field]: value };
@@ -265,6 +332,13 @@ const FacultyAvailabilityForm = () => {
     setTimeSlots(updatedSlots);
   };
 
+  /**
+   * Validates a time slot against candidate arrival/departure dates.
+   * 
+   * @param {Date} startTime - Time slot start time
+   * @param {Date} endTime - Time slot end time
+   * @returns {Array<string>} Array of error messages (empty if valid)
+   */
   const validateTimeSlot = (startTime, endTime) => {
     const errors = [];
     
@@ -303,6 +377,11 @@ const FacultyAvailabilityForm = () => {
     return errors;
   };
 
+  /**
+   * Handles form submission.
+   * Validates form data, formats time slots, and sends to API.
+   * Resets form and refreshes existing submissions on success.
+   */
   const handleSubmit = async () => {
     if (!selectedCandidate) {
       setSnackbar({
@@ -383,6 +462,12 @@ const FacultyAvailabilityForm = () => {
     }
   };
 
+  /**
+   * Deletes an existing availability submission.
+   * Refreshes the list of submissions on success.
+   * 
+   * @param {string|number} id - ID of the submission to delete
+   */
   const handleDeleteSubmission = async (id) => {
     try {
       setLoading(true);
@@ -408,6 +493,9 @@ const FacultyAvailabilityForm = () => {
     }
   };
 
+  /**
+   * Closes the snackbar message.
+   */
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
   };

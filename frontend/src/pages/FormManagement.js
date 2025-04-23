@@ -1,3 +1,7 @@
+/**
+ * Form Management component for creating, editing, and managing forms.
+ * Provides functionality to create custom forms, view submissions, and manage faculty availability.
+ */
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -55,6 +59,9 @@ import FacultyAvailabilitySubmissions from '../components/admin/FacultyAvailabil
 import { format, parseISO } from 'date-fns';
 import { useTheme, alpha } from '@mui/material/styles';
 
+/**
+ * Available field types for form creation
+ */
 const FIELD_TYPES = [
   { value: 'text', label: 'Text' },
   { value: 'textarea', label: 'Text Area' },
@@ -65,6 +72,10 @@ const FIELD_TYPES = [
   { value: 'date_range', label: 'Date Range' },
 ];
 
+/**
+ * Form Management component for handling all form-related operations
+ * @returns {JSX.Element} The Form Management component
+ */
 const FormManagement = () => {
   const { currentUser, isAdmin } = useAuth();
   const [forms, setForms] = useState([]);
@@ -97,6 +108,9 @@ const FormManagement = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const theme = useTheme();
 
+  /**
+   * Fetch forms and users data on component mount
+   */
   useEffect(() => {
     fetchForms();
     if (isAdmin) {
@@ -104,6 +118,9 @@ const FormManagement = () => {
     }
   }, [currentUser, isAdmin]);
 
+  /**
+   * Add a virtual faculty availability form to the forms list
+   */
   useEffect(() => {
     // Add a virtual "Faculty Availability" form to the forms list
     const facultyAvailabilityForm = {
@@ -122,6 +139,9 @@ const FormManagement = () => {
     }
   }, [forms]);
 
+  /**
+   * Fetch all forms from the API
+   */
   const fetchForms = async () => {
     try {
       const response = await api.get('/forms/');
@@ -131,6 +151,9 @@ const FormManagement = () => {
     }
   };
 
+  /**
+   * Fetch all users from the API
+   */
   const fetchUsers = async () => {
     try {
       const response = await api.get('/users/');
@@ -140,6 +163,10 @@ const FormManagement = () => {
     }
   };
 
+  /**
+   * Handle editing a form
+   * @param {Object} form - The form to edit
+   */
   const handleEditForm = (form) => {
     // Skip editing for the virtual faculty availability form
     if (form.id === 'faculty-availability') {
@@ -157,6 +184,10 @@ const FormManagement = () => {
     setOpenDialog(true);
   };
 
+  /**
+   * Handle deleting a form
+   * @param {string} formId - The ID of the form to delete
+   */
   const handleDeleteForm = async (formId) => {
     // Skip deletion for the virtual faculty availability form
     if (formId === 'faculty-availability') {
@@ -173,6 +204,10 @@ const FormManagement = () => {
     }
   };
 
+  /**
+   * Handle sending form link to selected users
+   * @param {Event} e - The form submission event
+   */
   const handleSendFormLink = async (e) => {
     e.preventDefault();
     setError('');
@@ -206,6 +241,10 @@ const FormManagement = () => {
     }
   };
 
+  /**
+   * Toggle a user's selection in the send form dialog
+   * @param {Object} user - The user to toggle
+   */
   const handleToggleUser = (user) => {
     const currentIndex = selectedUsers.findIndex(u => u.id === user.id);
     const newSelectedUsers = [...selectedUsers];
@@ -219,6 +258,10 @@ const FormManagement = () => {
     setSelectedUsers(newSelectedUsers);
   };
 
+  /**
+   * Open the dialog to send form link and prepare message template
+   * @param {Object} form - The form to send
+   */
   const handleOpenSendLinkDialog = (form) => {
     setSelectedForm(form);
     // Prepopulate the message with a template
@@ -234,16 +277,26 @@ ${currentUser?.email}`);
     setOpenSendLinkDialog(true);
   };
 
+  /**
+   * Open the form submissions dialog
+   * @param {Object} form - The form to view submissions for
+   */
   const handleViewSubmissions = (form) => {
     setSelectedFormForSubmissions(form);
     setSubmissionsDialogOpen(true);
   };
 
+  /**
+   * Close the form submissions dialog
+   */
   const handleCloseSubmissionsDialog = () => {
     setSubmissionsDialogOpen(false);
     setSelectedFormForSubmissions(null);
   };
 
+  /**
+   * Add a new field to the form being edited
+   */
   const handleAddField = () => {
     const newField = {
       id: `field_${Date.now()}`,
@@ -259,6 +312,12 @@ ${currentUser?.email}`);
     }));
   };
 
+  /**
+   * Update a field property in the form being edited
+   * @param {string} fieldId - The ID of the field to update
+   * @param {string} field - The field property to update
+   * @param {any} value - The new value for the field property
+   */
   const handleFieldChange = (fieldId, field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -268,6 +327,10 @@ ${currentUser?.email}`);
     }));
   };
 
+  /**
+   * Add a new option to a field of type select, radio, or checkbox
+   * @param {string} fieldId - The ID of the field to add an option to
+   */
   const handleAddOption = (fieldId) => {
     setFormData(prev => ({
       ...prev,
@@ -279,6 +342,12 @@ ${currentUser?.email}`);
     }));
   };
 
+  /**
+   * Update an option's value for a field
+   * @param {string} fieldId - The ID of the field containing the option
+   * @param {string} optionId - The ID of the option to update
+   * @param {string} value - The new option value
+   */
   const handleOptionChange = (fieldId, optionId, value) => {
     setFormData(prev => ({
       ...prev,
@@ -295,6 +364,11 @@ ${currentUser?.email}`);
     }));
   };
 
+  /**
+   * Delete an option from a field
+   * @param {string} fieldId - The ID of the field containing the option
+   * @param {string} optionId - The ID of the option to delete
+   */
   const handleDeleteOption = (fieldId, optionId) => {
     setFormData(prev => ({
       ...prev,
@@ -306,6 +380,10 @@ ${currentUser?.email}`);
     }));
   };
 
+  /**
+   * Handle form submission for creating or updating a form
+   * @param {Event} e - The form submission event
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -355,6 +433,9 @@ ${currentUser?.email}`);
     }
   };
 
+  /**
+   * Fetch all active seasons from the API
+   */
   const fetchSeasons = async () => {
     try {
       const response = await seasonsAPI.getSeasons();
@@ -373,6 +454,10 @@ ${currentUser?.email}`);
     }
   };
 
+  /**
+   * Fetch candidate sections for a specific season
+   * @param {string} seasonId - The ID of the season to fetch candidate sections for
+   */
   const fetchCandidateSections = async (seasonId) => {
     try {
       const response = await candidateSectionsAPI.getCandidateSectionsBySeason(seasonId);
@@ -388,6 +473,9 @@ ${currentUser?.email}`);
     }
   };
 
+  /**
+   * Fetch all faculty users from the API
+   */
   const fetchFacultyUsers = async () => {
     try {
       const response = await api.get('/users/?user_type=faculty');
@@ -402,6 +490,9 @@ ${currentUser?.email}`);
     }
   };
 
+  /**
+   * Open the invite dialog and load necessary data
+   */
   const handleOpenInviteDialog = async () => {
     await fetchSeasons();
     await fetchFacultyUsers();
@@ -412,10 +503,17 @@ ${currentUser?.email}`);
     setShowInviteDialog(true);
   };
 
+  /**
+   * Close the faculty invite dialog
+   */
   const handleCloseInviteDialog = () => {
     setShowInviteDialog(false);
   };
 
+  /**
+   * Toggle selection of a candidate
+   * @param {string} candidateId - The ID of the candidate to toggle
+   */
   const handleSelectCandidate = (candidateId) => {
     setSelectedCandidates(prev => {
       if (prev.includes(candidateId)) {
@@ -426,6 +524,10 @@ ${currentUser?.email}`);
     });
   };
 
+  /**
+   * Toggle selection of a faculty member
+   * @param {string} facultyId - The ID of the faculty to toggle
+   */
   const handleSelectFaculty = (facultyId) => {
     setSelectedFaculty(prev => {
       if (prev.includes(facultyId)) {
@@ -436,6 +538,9 @@ ${currentUser?.email}`);
     });
   };
 
+  /**
+   * Send availability invitations to selected faculty for selected candidates
+   */
   const handleSendInvitations = async () => {
     if (selectedCandidates.length === 0 || selectedFaculty.length === 0) {
       setSnackbar({
@@ -449,20 +554,11 @@ ${currentUser?.email}`);
     try {
       setSendingInvitations(true);
       
-      // Add console logging to debug the request
-      console.log("Sending invitation request with data:", {
-        faculty_ids: selectedFaculty,
-        candidate_section_ids: selectedCandidates,
-        send_email: true
-      });
-      
       const response = await availabilityInvitationAPI.inviteFaculty(
         selectedFaculty,
         selectedCandidates,
         true
       );
-      
-      console.log("Invitation response:", response);
       
       setSnackbar({
         open: true,
@@ -484,10 +580,17 @@ ${currentUser?.email}`);
     }
   };
 
+  /**
+   * Close the snackbar notification
+   */
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
+  /**
+   * Import preferred faculty selections for a specific candidate
+   * @param {string} candidateId - The ID of the candidate to import preferred faculty for
+   */
   const handleImportPreferredFaculty = async (candidateId) => {
     try {
       // Find the selected candidate section

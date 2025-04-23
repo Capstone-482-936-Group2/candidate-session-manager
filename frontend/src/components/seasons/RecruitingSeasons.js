@@ -1,3 +1,7 @@
+/**
+ * Component that displays recruiting seasons and their associated candidate sections.
+ * Allows users to view available time slots and register/unregister for candidate sessions.
+ */
 import React, { useState, useEffect } from 'react';
 import { 
   Container, Typography, Paper, Box, Grid, Card, CardContent, 
@@ -9,6 +13,12 @@ import { format } from 'date-fns';
 import { seasonsAPI, candidateSectionsAPI, timeSlotsAPI } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 
+/**
+ * RecruitingSeasons component displays all recruiting seasons and their candidate sections.
+ * Users can view time slots and register/unregister for candidate sessions.
+ * 
+ * @returns {React.ReactNode} List of recruiting seasons with candidate sections
+ */
 const RecruitingSeasons = () => {
   const [seasons, setSeasons] = useState([]);
   const [candidateSections, setCandidateSections] = useState([]);
@@ -18,6 +28,9 @@ const RecruitingSeasons = () => {
   
   const { currentUser } = useAuth();
 
+  /**
+   * Fetches recruiting seasons and their associated candidate sections on component mount.
+   */
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -26,7 +39,7 @@ const RecruitingSeasons = () => {
         const seasonsResponse = await seasonsAPI.getSeasons();
         setSeasons(seasonsResponse.data);
         
-        // Fetch candidate sections 
+        // Fetch candidate sections for each season
         const sectionsPromises = seasonsResponse.data.map(season => 
           candidateSectionsAPI.getCandidateSectionsBySeason(season.id)
         );
@@ -36,7 +49,6 @@ const RecruitingSeasons = () => {
         setCandidateSections(allSections);
       } catch (err) {
         setError('Failed to load recruiting seasons data');
-        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -45,6 +57,12 @@ const RecruitingSeasons = () => {
     fetchData();
   }, []);
 
+  /**
+   * Handles registration for a time slot.
+   * Refreshes data after successful registration to update UI.
+   * 
+   * @param {string|number} timeSlotId - ID of the time slot to register for
+   */
   const handleRegister = async (timeSlotId) => {
     try {
       await timeSlotsAPI.registerForTimeSlot(timeSlotId);
@@ -67,6 +85,12 @@ const RecruitingSeasons = () => {
     }
   };
 
+  /**
+   * Handles unregistration from a time slot.
+   * Refreshes data after successful unregistration to update UI.
+   * 
+   * @param {string|number} timeSlotId - ID of the time slot to unregister from
+   */
   const handleUnregister = async (timeSlotId) => {
     try {
       await timeSlotsAPI.unregisterFromTimeSlot(timeSlotId);
@@ -89,10 +113,17 @@ const RecruitingSeasons = () => {
     }
   };
 
+  /**
+   * Checks if the current user is registered for a time slot
+   * 
+   * @param {Object} timeSlot - Time slot object to check
+   * @returns {boolean} Whether the current user is registered for the time slot
+   */
   const isRegistered = (timeSlot) => {
     return timeSlot.attendees?.some(attendee => attendee.user.id === currentUser.id);
   };
 
+  // Show loading indicator while fetching data
   if (loading) return (
     <Container maxWidth="md" sx={{ mt: 4, textAlign: 'center' }}>
       <CircularProgress />
@@ -110,6 +141,7 @@ const RecruitingSeasons = () => {
         Each season has candidate sections that you can register for.
       </Typography>
       
+      {/* Error and status messages */}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
       )}
@@ -118,6 +150,7 @@ const RecruitingSeasons = () => {
         <Alert severity="success" sx={{ mb: 2 }}>{statusMessage}</Alert>
       )}
       
+      {/* Display seasons or empty state */}
       {seasons.length === 0 ? (
         <Paper sx={{ p: 3, textAlign: 'center' }}>
           <Typography variant="h6">No recruiting seasons available</Typography>
@@ -134,6 +167,7 @@ const RecruitingSeasons = () => {
           
           return (
             <Paper key={season.id} sx={{ p: 3, mb: 3 }}>
+              {/* Season header */}
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <CalendarIcon sx={{ mr: 1 }} />
                 <Typography variant="h5" component="h2">
@@ -151,6 +185,7 @@ const RecruitingSeasons = () => {
               
               <Divider sx={{ my: 2 }} />
               
+              {/* Candidate sections for this season */}
               {seasonSections.length === 0 ? (
                 <Typography variant="body2" color="textSecondary">
                   No candidate sections available for this recruiting season.
@@ -161,6 +196,7 @@ const RecruitingSeasons = () => {
                     <Grid item xs={12} md={6} key={section.id}>
                       <Card sx={{ height: '100%' }}>
                         <CardContent>
+                          {/* Section header and basic info */}
                           <Typography variant="h6" gutterBottom>
                             {section.title}
                           </Typography>
@@ -188,6 +224,7 @@ const RecruitingSeasons = () => {
                           
                           <Divider sx={{ my: 2 }} />
                           
+                          {/* Time slots accordion */}
                           <Typography variant="subtitle2" gutterBottom>
                             Available Time Slots:
                           </Typography>
@@ -232,6 +269,7 @@ const RecruitingSeasons = () => {
                                             </Box>
                                           }
                                         />
+                                        {/* Registration/Unregistration buttons */}
                                         <Box sx={{ alignSelf: 'flex-end', mt: 1 }}>
                                           {userRegistered ? (
                                             <Button 

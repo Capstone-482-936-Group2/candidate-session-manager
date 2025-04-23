@@ -1,3 +1,8 @@
+/**
+ * Dialog component for sending form links to candidates via email.
+ * Allows selection of forms, entering candidate email, and adding custom messages.
+ * Provides feedback on success or error after submission.
+ */
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -15,6 +20,15 @@ import {
 } from '@mui/material';
 import { usersAPI } from '../../api/api';
 
+/**
+ * SendFormLink component presents a dialog for sending form links to candidates.
+ * 
+ * @param {Object} props - Component props
+ * @param {boolean} props.open - Whether the dialog is open
+ * @param {Function} props.onClose - Callback to close the dialog
+ * @param {Array} props.forms - List of available forms with id and title
+ * @returns {React.ReactNode} Dialog for sending form links
+ */
 const SendFormLink = ({ open, onClose, forms }) => {
   const [selectedForm, setSelectedForm] = useState('');
   const [candidateEmail, setCandidateEmail] = useState('');
@@ -22,6 +36,12 @@ const SendFormLink = ({ open, onClose, forms }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  /**
+   * Handles form submission to send the form link.
+   * Shows success/error messages and resets form on success.
+   * 
+   * @param {React.FormEvent} e - Form submit event
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -31,14 +51,15 @@ const SendFormLink = ({ open, onClose, forms }) => {
       await usersAPI.sendFormLink(selectedForm, candidateEmail, message);
 
       setSuccess('Form link sent successfully!');
+      // Reset form fields
       setSelectedForm('');
       setCandidateEmail('');
       setMessage('');
+      // Close dialog after success (with delay for user to see success message)
       setTimeout(() => {
         onClose();
       }, 2000);
     } catch (err) {
-      console.error('Error sending form link:', err);
       setError(err.response?.data?.error || 'Failed to send form link');
     }
   };
@@ -48,9 +69,11 @@ const SendFormLink = ({ open, onClose, forms }) => {
       <DialogTitle>Send Form Link to Candidate</DialogTitle>
       <form onSubmit={handleSubmit}>
         <DialogContent>
+          {/* Display error/success messages */}
           {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
           {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
           
+          {/* Form selection dropdown */}
           <FormControl fullWidth sx={{ mb: 2 }}>
             <InputLabel>Select Form</InputLabel>
             <Select
@@ -67,6 +90,7 @@ const SendFormLink = ({ open, onClose, forms }) => {
             </Select>
           </FormControl>
 
+          {/* Candidate email input */}
           <TextField
             fullWidth
             label="Candidate Email"
@@ -77,6 +101,7 @@ const SendFormLink = ({ open, onClose, forms }) => {
             sx={{ mb: 2 }}
           />
 
+          {/* Custom message input */}
           <TextField
             fullWidth
             label="Message"

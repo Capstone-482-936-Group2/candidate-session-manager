@@ -1,3 +1,8 @@
+/**
+ * Form submission component that dynamically renders form fields based on configuration.
+ * Handles both form submission mode and view-only mode for reviewing previous submissions.
+ * Supports various field types including text, textarea, select, radio, checkbox, date, and date ranges.
+ */
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -33,6 +38,17 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import api from '../../api/api';
 
+/**
+ * Form submission component that dynamically renders form fields and handles submissions.
+ * 
+ * @param {Object} props - Component props
+ * @param {string|number} props.formId - ID of the form to load
+ * @param {Function} props.onClose - Callback function when form is closed
+ * @param {Function} props.onSubmitted - Callback function when form is successfully submitted
+ * @param {boolean} props.isViewOnly - Whether the form should be in view-only mode
+ * @param {Object} props.submission - Previous submission data (for view-only mode)
+ * @returns {React.ReactNode} Form submission interface
+ */
 const FormSubmission = ({ formId, onClose, onSubmitted, isViewOnly = false, submission = null }) => {
   const [form, setForm] = useState(null);
   const [answers, setAnswers] = useState({});
@@ -43,6 +59,12 @@ const FormSubmission = ({ formId, onClose, onSubmitted, isViewOnly = false, subm
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
 
+  /**
+   * Formats a date range value for display
+   * 
+   * @param {Object|string} value - Date range value
+   * @returns {string} Formatted date range
+   */
   const formatDateRange = (value) => {
     if (!value) return '';
     if (typeof value === 'string') return value;
@@ -50,6 +72,13 @@ const FormSubmission = ({ formId, onClose, onSubmitted, isViewOnly = false, subm
     return `${new Date(value.startDate + 'T00:00:00').toLocaleDateString()} - ${new Date(value.endDate + 'T00:00:00').toLocaleDateString()}`;
   };
 
+  /**
+   * Formats a field's answer for display based on field type
+   * 
+   * @param {Object} field - Field configuration
+   * @param {any} value - Field value
+   * @returns {string} Formatted answer
+   */
   const formatAnswer = (field, value) => {
     if (!value) return '';
     
@@ -65,6 +94,12 @@ const FormSubmission = ({ formId, onClose, onSubmitted, isViewOnly = false, subm
     }
   };
 
+  /**
+   * Formats a date string for display in date picker component
+   * 
+   * @param {string} dateString - Date string in YYYY-MM-DD format
+   * @returns {Date|null} Date object or null if invalid
+   */
   const formatDateForDisplay = (dateString) => {
     if (!dateString) return null;
     // Create a date object and set it to noon UTC to avoid timezone issues
@@ -72,6 +107,12 @@ const FormSubmission = ({ formId, onClose, onSubmitted, isViewOnly = false, subm
     return date;
   };
 
+  /**
+   * Formats a date object for submission to API in YYYY-MM-DD format
+   * 
+   * @param {Date} date - Date object
+   * @returns {string} Formatted date string
+   */
   const formatDateForSubmission = (date) => {
     if (!date) return '';
     // Format the date as YYYY-MM-DD in UTC
@@ -81,10 +122,16 @@ const FormSubmission = ({ formId, onClose, onSubmitted, isViewOnly = false, subm
     return `${year}-${month}-${day}`;
   };
 
+  /**
+   * Fetches form data from API when component mounts
+   */
   useEffect(() => {
     fetchForm();
   }, [formId]);
 
+  /**
+   * Fetches form data and initializes answers
+   */
   const fetchForm = async () => {
     try {
       const response = await api.get(`/forms/${formId}/`);
@@ -128,6 +175,12 @@ const FormSubmission = ({ formId, onClose, onSubmitted, isViewOnly = false, subm
     }
   };
 
+  /**
+   * Updates a field's answer in state
+   * 
+   * @param {string|number} fieldId - Field ID
+   * @param {any} value - New field value
+   */
   const handleAnswerChange = (fieldId, value) => {
     setAnswers(prev => ({
       ...prev,
@@ -135,6 +188,13 @@ const FormSubmission = ({ formId, onClose, onSubmitted, isViewOnly = false, subm
     }));
   };
 
+  /**
+   * Handles checkbox field changes
+   * 
+   * @param {string|number} fieldId - Field ID
+   * @param {string} optionLabel - Option label
+   * @param {boolean} checked - Whether checkbox is checked
+   */
   const handleCheckboxChange = (fieldId, optionLabel, checked) => {
     setAnswers(prev => {
       const currentAnswers = prev[fieldId] || [];
@@ -148,6 +208,11 @@ const FormSubmission = ({ formId, onClose, onSubmitted, isViewOnly = false, subm
     });
   };
 
+  /**
+   * Validates all form answers before submission
+   * 
+   * @returns {Object} Validation errors by field ID
+   */
   const validateAnswers = () => {
     const errors = {};
     form.form_fields.forEach(field => {
@@ -167,6 +232,12 @@ const FormSubmission = ({ formId, onClose, onSubmitted, isViewOnly = false, subm
     return errors;
   };
 
+  /**
+   * Handles initial submit button click
+   * Validates form and opens confirmation dialog
+   * 
+   * @param {React.FormEvent} e - Form event
+   */
   const handleSubmitClick = (e) => {
     if (e) {
       e.preventDefault();
@@ -181,6 +252,10 @@ const FormSubmission = ({ formId, onClose, onSubmitted, isViewOnly = false, subm
     setConfirmDialogOpen(true);
   };
 
+  /**
+   * Handles final form submission after confirmation
+   * Sends form data to API
+   */
   const handleConfirmSubmit = async () => {
     setConfirmDialogOpen(false);
     setSubmitting(true);
@@ -220,6 +295,12 @@ const FormSubmission = ({ formId, onClose, onSubmitted, isViewOnly = false, subm
     }
   };
 
+  /**
+   * Renders field help text with HTML support
+   * 
+   * @param {string} helpText - Help text content
+   * @returns {React.ReactNode} Rendered help text
+   */
   const renderHelpText = (helpText) => {
     if (!helpText) return null;
     return (

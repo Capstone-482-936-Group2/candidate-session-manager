@@ -1,3 +1,7 @@
+/**
+ * Forms component - Provides a UI for managing form resources.
+ * This component displays existing forms and allows for creation of new forms.
+ */
 import React, { useState, useEffect } from 'react';
 import {
   Container,
@@ -18,7 +22,12 @@ import {
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import api from '../api/api';
 
+/**
+ * Forms component for viewing and managing forms
+ * @returns {JSX.Element} The Forms component
+ */
 const Forms = () => {
+  // State management for forms and UI elements
   const [forms, setForms] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingForm, setEditingForm] = useState(null);
@@ -29,6 +38,10 @@ const Forms = () => {
 
   // ... existing useEffect and other functions ...
 
+  /**
+   * Renders the Forms component with a list of available forms
+   * and controls for creating new forms
+   */
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>

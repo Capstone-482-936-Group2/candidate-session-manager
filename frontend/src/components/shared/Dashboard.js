@@ -1,3 +1,8 @@
+/**
+ * Main dashboard component that serves as the home page after user login.
+ * Displays a session calendar and provides quick access to role-specific features.
+ * Different UI elements are shown based on user role (admin, faculty, or candidate).
+ */
 import React, { useState, useEffect } from 'react';
 import { 
   Container, 
@@ -20,6 +25,12 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import SchoolIcon from '@mui/icons-material/School';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
 
+/**
+ * Dashboard component renders the main page users see after logging in.
+ * Shows a calendar of candidate sessions and role-specific navigation options.
+ * 
+ * @returns {React.ReactNode} Dashboard interface with calendar and role-specific options
+ */
 const Dashboard = () => {
   const { currentUser, isFaculty, isAdmin } = useAuth();
   const [candidateSections, setCandidateSections] = useState([]);
@@ -27,6 +38,9 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const theme = useTheme();
 
+  /**
+   * Fetches session calendar data when component mounts or user changes
+   */
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -39,16 +53,15 @@ const Dashboard = () => {
           
           // Get candidate sections for this season
           const sectionsResponse = await candidateSectionsAPI.getCandidateSectionsBySeason(currentSeason.id);
-          console.log('Dashboard - Candidate sections:', sectionsResponse.data);
+          
           // Check if the sections have time slots
           const hasTimeSlots = sectionsResponse.data.some(section => 
             section.time_slots && section.time_slots.length > 0
           );
-          console.log('Dashboard - Has time slots:', hasTimeSlots);
+          
           setCandidateSections(sectionsResponse.data);
         }
       } catch (err) {
-        console.error('Error fetching calendar data:', err);
         setError('Failed to load calendar data');
       } finally {
         setLoading(false);
@@ -60,7 +73,12 @@ const Dashboard = () => {
     }
   }, [currentUser?.id]);
 
-  // Handle register and unregister (if faculty)
+  /**
+   * Handles time slot registration for faculty members
+   * Refreshes calendar data after successful registration
+   * 
+   * @param {string|number} timeSlotId - ID of the time slot to register for
+   */
   const handleRegister = async (timeSlotId) => {
     try {
       await timeSlotsAPI.registerForTimeSlot(timeSlotId);
@@ -73,11 +91,16 @@ const Dashboard = () => {
         setCandidateSections(sectionsResponse.data);
       }
     } catch (err) {
-      console.error('Error registering for time slot:', err);
       setError('Failed to register for time slot');
     }
   };
 
+  /**
+   * Handles time slot unregistration for faculty members
+   * Refreshes calendar data after successful unregistration
+   * 
+   * @param {string|number} timeSlotId - ID of the time slot to unregister from
+   */
   const handleUnregister = async (timeSlotId) => {
     try {
       await timeSlotsAPI.unregisterFromTimeSlot(timeSlotId);
@@ -90,11 +113,11 @@ const Dashboard = () => {
         setCandidateSections(sectionsResponse.data);
       }
     } catch (err) {
-      console.error('Error unregistering from time slot:', err);
       setError('Failed to unregister from time slot');
     }
   };
 
+  // Display loading indicator while fetching data
   if (loading) {
     return (
       <Box 
@@ -112,6 +135,7 @@ const Dashboard = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 6 }}>
+      {/* Dashboard header with welcome message */}
       <Box mb={4}>
         <Typography variant="h4" gutterBottom sx={{ fontWeight: 600, color: 'primary.dark' }}>
           Welcome, {currentUser?.first_name || currentUser?.email}
@@ -121,6 +145,7 @@ const Dashboard = () => {
         </Typography>
       </Box>
       
+      {/* Error message display */}
       {error && (
         <Paper 
           elevation={0}
@@ -137,6 +162,7 @@ const Dashboard = () => {
         </Paper>
       )}
       
+      {/* Main calendar section */}
       <Grid container spacing={3}>
         <Grid item xs={12}>
           <Card 
@@ -185,8 +211,10 @@ const Dashboard = () => {
         </Grid>
       </Grid>
       
+      {/* Role-specific navigation cards (faculty and admin only) */}
       {(isFaculty || isAdmin) && (
         <Grid container spacing={3} sx={{ mt: 1 }}>
+          {/* Faculty-specific navigation card */}
           {isFaculty && (
             <Grid item xs={12} md={6}>
               <Card 
@@ -230,6 +258,7 @@ const Dashboard = () => {
             </Grid>
           )}
           
+          {/* Admin-specific navigation card */}
           {isAdmin && (
             <Grid item xs={12} md={isFaculty ? 6 : 12}>
               <Card 

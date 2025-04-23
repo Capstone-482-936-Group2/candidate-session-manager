@@ -1,3 +1,8 @@
+/**
+ * Multi-step form for candidates to provide all necessary information for their visit.
+ * Includes personal details, travel preferences, talk information, and visit preferences.
+ * This form appears when a candidate needs to complete their profile setup.
+ */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
@@ -40,6 +45,9 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import { usersAPI } from '../../api/api';
 import { format } from 'date-fns';
 
+/**
+ * Steps for the candidate setup wizard
+ */
 const steps = [
   'Personal Information',
   'Travel Details',
@@ -48,6 +56,9 @@ const steps = [
   'Review & Submit'
 ];
 
+/**
+ * Available food preference options
+ */
 const FOOD_PREFERENCES = [
   'American',
   'Chinese',
@@ -60,6 +71,9 @@ const FOOD_PREFERENCES = [
   'Other'
 ];
 
+/**
+ * Available dietary restriction options
+ */
 const DIETARY_RESTRICTIONS = [
   'NONE',
   'Kosher',
@@ -68,13 +82,24 @@ const DIETARY_RESTRICTIONS = [
   'Other'
 ];
 
+/**
+ * Available campus/community tour options
+ */
 const TOUR_OPTIONS = [
   'Campus Tour',
   'Community Tour w/Realtor',
   'Not at this time'
 ];
 
-// Move PersonalInformationStep outside the main component
+/**
+ * Personal Information step component.
+ * Collects candidate's basic details and current position information.
+ * 
+ * @param {Object} props - Component props
+ * @param {Object} props.formData - Current form data
+ * @param {Function} props.handleInputChange - Function to handle input changes
+ * @returns {React.ReactNode} Form step for personal information
+ */
 const PersonalInformationStep = ({ formData, handleInputChange }) => (
   <Box sx={{ mt: 2 }}>
     <Typography variant="h6" gutterBottom>
@@ -171,7 +196,15 @@ const PersonalInformationStep = ({ formData, handleInputChange }) => (
   </Box>
 );
 
-// Add the TravelAssistanceStep component
+/**
+ * Travel Assistance step component.
+ * Collects travel preferences, personal details for travel arrangements, and preferred visit dates.
+ * 
+ * @param {Object} props - Component props
+ * @param {Object} props.formData - Current form data
+ * @param {Function} props.handleInputChange - Function to handle input changes
+ * @returns {React.ReactNode} Form step for travel details
+ */
 const TravelAssistanceStep = ({ formData, handleInputChange }) => {
   // Make sure we're working with a proper date array
   const visitDates = [...(formData.preferred_visit_dates || [
@@ -191,6 +224,13 @@ const TravelAssistanceStep = ({ formData, handleInputChange }) => {
     endDate: range.endDate ? new Date(range.endDate) : null
   }));
   
+  /**
+   * Handles changes to date range inputs
+   * 
+   * @param {number} index - Index of the date range to update
+   * @param {string} field - Field to update ('startDate' or 'endDate')
+   * @param {Date} date - New date value
+   */
   const handleDateRangeChange = (index, field, date) => {
     // Create a copy of the date array
     const newDates = [...normalizedVisitDates];
@@ -409,7 +449,23 @@ const TravelAssistanceStep = ({ formData, handleInputChange }) => {
   );
 };
 
-// Add the TalkInformationStep component
+/**
+ * Talk Information step component.
+ * Collects details about the candidate's talk, including title, abstract, biography,
+ * headshot upload, and permissions for recording/advertising.
+ * 
+ * @param {Object} props - Component props
+ * @param {Object} props.formData - Current form data
+ * @param {Function} props.setFormData - Function to directly update form data
+ * @param {Function} props.handleInputChange - Function to handle input changes
+ * @param {Function} props.onFileUpload - Function to handle file uploads
+ * @param {string|null} props.headshotPreview - URL for headshot preview
+ * @param {Function} props.setHeadshotPreview - Function to update headshot preview
+ * @param {string|null} props.uploadError - Error message for failed uploads
+ * @param {Function} props.setUploadError - Function to update upload error message
+ * @param {Function} props.onHeadshotRemove - Function to remove uploaded headshot
+ * @returns {React.ReactNode} Form step for talk information
+ */
 const TalkInformationStep = ({ 
   formData, 
   setFormData,
@@ -423,6 +479,10 @@ const TalkInformationStep = ({
 }) => {
   const fileInputRef = useRef(null);
 
+  /**
+   * Handles file selection and validation before upload
+   * @param {React.ChangeEvent<HTMLInputElement>} event - Input change event
+   */
   const handleFileSelect = async (event) => {
     try {
       const file = event.target.files[0];
@@ -451,21 +511,26 @@ const TalkInformationStep = ({
       try {
         await onFileUpload(formData);
       } catch (error) {
-        console.error('Error handling file:', error);
+        setUploadError('Failed to process file. Please try again.');
       }
     } catch (error) {
-      console.error('Error handling file:', error);
       setUploadError('Failed to process file. Please try again.');
     }
   };
 
+  /**
+   * Triggers file input click
+   */
   const handleButtonClick = () => {
     fileInputRef.current?.click();
   };
 
+  /**
+   * Handles changes to permission radio buttons
+   * @param {React.ChangeEvent<HTMLInputElement>} event - Input change event
+   */
   const handlePermissionChange = (event) => {
     const { name, value } = event.target;
-    // Here's the problem - we're passing the wrong format to handleInputChange
     handleInputChange({
       target: {
         name,
@@ -639,6 +704,16 @@ const TalkInformationStep = ({
   );
 };
 
+/**
+ * Preferences step component.
+ * Collects candidate preferences for food, dietary restrictions, tours, and faculty meetings.
+ * 
+ * @param {Object} props - Component props
+ * @param {Object} props.formData - Current form data
+ * @param {Function} props.handleInputChange - Function to handle input changes
+ * @param {Array} props.facultyList - List of faculty members available for meetings
+ * @returns {React.ReactNode} Form step for candidate preferences
+ */
 const PreferencesStep = ({ formData, handleInputChange, facultyList }) => {
   const [otherFoodPreference, setOtherFoodPreference] = useState(
     formData.other_food_preference || ''
@@ -647,6 +722,9 @@ const PreferencesStep = ({ formData, handleInputChange, facultyList }) => {
     formData.other_dietary_restriction || ''
   );
 
+  /**
+   * Updates the form data when "Other" food preference is selected and details provided
+   */
   useEffect(() => {
     if (formData.food_preferences?.includes('Other')) {
       handleInputChange({
@@ -658,6 +736,9 @@ const PreferencesStep = ({ formData, handleInputChange, facultyList }) => {
     }
   }, [otherFoodPreference]);
 
+  /**
+   * Updates the form data when "Other" dietary restriction is selected and details provided
+   */
   useEffect(() => {
     if (formData.dietary_restrictions?.includes('Other')) {
       handleInputChange({
@@ -669,7 +750,10 @@ const PreferencesStep = ({ formData, handleInputChange, facultyList }) => {
     }
   }, [otherDietaryRestriction]);
 
-  // Handle food preferences change with "Other" option
+  /**
+   * Handles food preference selection changes, limiting to a maximum of 3 options
+   * @param {React.ChangeEvent<HTMLInputElement>} event - Selection change event
+   */
   const handleFoodPreferencesChange = (event) => {
     const value = event.target.value;
     // Ensure value is always an array
@@ -691,7 +775,10 @@ const PreferencesStep = ({ formData, handleInputChange, facultyList }) => {
     }
   };
 
-  // Handle dietary restrictions change with "Other" option
+  /**
+   * Handles dietary restriction selection changes
+   * @param {React.ChangeEvent<HTMLInputElement>} event - Selection change event
+   */
   const handleDietaryRestrictionsChange = (event) => {
     const value = event.target.value;
     // Ensure value is always an array
@@ -710,7 +797,11 @@ const PreferencesStep = ({ formData, handleInputChange, facultyList }) => {
     });
   };
 
-  // Handle faculty selection
+  /**
+   * Updates preferred faculty selection at a specific index
+   * @param {number} index - Index position to update
+   * @param {string} value - Faculty ID to set
+   */
   const handleFacultyChange = (index, value) => {
     const newFacultyPreferences = [...(formData.preferred_faculty || [])];
     // Make sure array has at least 4 elements
@@ -730,7 +821,12 @@ const PreferencesStep = ({ formData, handleInputChange, facultyList }) => {
     });
   };
 
-  // Get available faculty for a specific slot
+  /**
+   * Filters faculty list to include only those who haven't been selected
+   * in other slots (to prevent duplicate selections)
+   * @param {number} currentIndex - Current selection index
+   * @returns {Array} Filtered list of available faculty
+   */
   const getAvailableFaculty = (currentIndex) => {
     const selectedFaculty = formData.preferred_faculty || ['', '', '', ''];
     return facultyList.filter(faculty => 
@@ -886,9 +982,21 @@ const PreferencesStep = ({ formData, handleInputChange, facultyList }) => {
   );
 };
 
-// Add the ReviewStep component
+/**
+ * Review step component.
+ * Displays a summary of all provided information for final review before submission.
+ * 
+ * @param {Object} props - Component props
+ * @param {Object} props.formData - Current form data
+ * @param {Array} props.facultyList - List of faculty members
+ * @returns {React.ReactNode} Form step for review
+ */
 const ReviewStep = ({ formData, facultyList }) => {
-  // Format date ranges more consistently
+  /**
+   * Formats date ranges consistently
+   * @param {Object} dateRange - Object containing startDate and endDate
+   * @returns {string|null} Formatted date range string or null if dates are missing
+   */
   const formatDateRange = (dateRange) => {
     if (!dateRange || !dateRange.startDate || !dateRange.endDate) return null;
     
@@ -909,7 +1017,10 @@ const ReviewStep = ({ formData, facultyList }) => {
     return `${formatDate(dateRange.startDate)} to ${formatDate(dateRange.endDate)}`;
   };
 
-  // Helper function to get faculty names
+  /**
+   * Retrieves faculty names from their IDs
+   * @returns {Array} List of faculty names
+   */
   const getFacultyNames = () => {
     if (!formData.preferred_faculty || !Array.isArray(formData.preferred_faculty) || formData.preferred_faculty.length === 0) {
       return [];
@@ -999,9 +1110,20 @@ const ReviewStep = ({ formData, facultyList }) => {
   );
 };
 
+/**
+ * Main candidate setup form component.
+ * Multi-step wizard that guides candidates through providing all necessary information.
+ * Includes form state management, validation, file uploads, and submission handling.
+ * 
+ * @returns {React.ReactNode} Multi-step form dialog
+ */
 const CandidateSetupForm = () => {
   const { user, setUser, setShowCandidateSetup } = useAuth();
   const [activeStep, setActiveStep] = useState(0);
+  
+  /**
+   * Initial form state with all required fields
+   */
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -1036,7 +1158,7 @@ const CandidateSetupForm = () => {
     ]
   });
   
-  // Add loading state for file upload
+  // Form state and UI state variables
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const [facultyList, setFacultyList] = useState([]);
@@ -1045,9 +1167,11 @@ const CandidateSetupForm = () => {
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
   const [submissionError, setSubmissionError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const dialogContentRef = useRef(null); // Add this ref for scrolling
+  const dialogContentRef = useRef(null); // Ref for scrolling
 
-  // Load user data when component mounts
+  /**
+   * Load user data when component mounts
+   */
   useEffect(() => {
     if (user) {
       setFormData(prev => {
@@ -1072,7 +1196,9 @@ const CandidateSetupForm = () => {
     }
   }, [user]);
 
-  // After component definition, add a useEffect to fetch faculty list
+  /**
+   * Fetch faculty list for meeting preferences
+   */
   useEffect(() => {
     const fetchFaculty = async () => {
       try {
@@ -1095,7 +1221,6 @@ const CandidateSetupForm = () => {
 
         setFacultyList(facultyMembers);
       } catch (error) {
-        console.error('Error fetching faculty list:', error);
         setFacultyList([]);
       }
     };
@@ -1103,6 +1228,10 @@ const CandidateSetupForm = () => {
     fetchFaculty();
   }, []);
 
+  /**
+   * Generic input change handler for form fields
+   * @param {Object} event - Input change event
+   */
   const handleInputChange = (event) => {
     const { name, value } = event.target;
     
@@ -1123,7 +1252,9 @@ const CandidateSetupForm = () => {
     });
   };
 
-  // Function to handle scrolling
+  /**
+   * Scrolls dialog to top when changing steps
+   */
   const scrollToTop = () => {
     if (dialogContentRef.current) {
       dialogContentRef.current.scrollTo({
@@ -1133,17 +1264,25 @@ const CandidateSetupForm = () => {
     }
   };
 
-  // Handle step changes
+  /**
+   * Advances to the next step in the wizard
+   */
   const handleNext = () => {
     setActiveStep((prevStep) => prevStep + 1);
     scrollToTop();
   };
 
+  /**
+   * Returns to the previous step in the wizard
+   */
   const handleBack = () => {
     setActiveStep((prevStep) => prevStep - 1);
     scrollToTop();
   };
 
+  /**
+   * Handles form submission, formats data, and sends to API
+   */
   const handleSubmit = async () => {
     try {
       setSubmitting(true);
@@ -1166,8 +1305,6 @@ const CandidateSetupForm = () => {
         preferred_visit_dates: formattedPreferredDates
       };
 
-      console.log('Submitting profile with data:', submissionData);
-
       const response = await usersAPI.completeCandidateSetup(submissionData);
       
       // Simplify success handling - just close the dialog
@@ -1184,21 +1321,24 @@ const CandidateSetupForm = () => {
         setShowCandidateSetup(false);
       }
     } catch (error) {
-      console.error('Error submitting profile:', error);
-      console.error('Error details:', error.response?.data || error);
       setSubmissionError(error.response?.data?.error || 'Failed to submit profile. Please try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Handle form close
+  /**
+   * Closes the setup form
+   */
   const handleClose = () => {
-    console.log('Closing candidate setup form');
     setShowCandidateSetup(false);
   };
 
-  // Update the getStepContent function to include the new step
+  /**
+   * Returns the appropriate component for the current step
+   * @param {number} step - Current step index
+   * @returns {React.ReactNode} Step component
+   */
   const getStepContent = (step) => {
     switch (step) {
       case 0:
@@ -1216,6 +1356,7 @@ const CandidateSetupForm = () => {
             setHeadshotPreview={setHeadshotPreview}
             uploadError={uploadError}
             setUploadError={setUploadError}
+            onHeadshotRemove={handleHeadshotRemove}
           />
         );
       case 3:
@@ -1231,6 +1372,9 @@ const CandidateSetupForm = () => {
     }
   };
 
+  /**
+   * Removes headshot preview and clears headshot URL from form data
+   */
   const handleHeadshotRemove = () => {
     setHeadshotPreview(null);
     setFormData(prev => ({
@@ -1240,7 +1384,11 @@ const CandidateSetupForm = () => {
     setUploadError(null);
   };
 
-  // Add this function to validate file type and size
+  /**
+   * Validates file type and size for uploads
+   * @param {File} file - File to validate
+   * @returns {boolean} Whether the file is valid
+   */
   const validateFile = (file) => {
     // Check file type
     if (!file.type.startsWith('image/')) {
@@ -1256,7 +1404,11 @@ const CandidateSetupForm = () => {
     return true;
   };
 
-  // Update the handleFileUpload function with the correct URL
+  /**
+   * Uploads headshot file to server and updates form data with URL
+   * @param {FormData} formData - FormData object containing file
+   * @returns {Object} Upload response from API
+   */
   const handleFileUpload = async (formData) => {
     try {
       const response = await usersAPI.uploadHeadshot(formData);
@@ -1269,18 +1421,15 @@ const CandidateSetupForm = () => {
       }
       return response;
     } catch (error) {
-      console.error('Error uploading file:', error);
       setUploadError('Failed to upload file. Please try again.');
       throw error;
     }
   };
 
-  // Add console logs to debug form data changes
-  useEffect(() => {
-    console.log('Form data updated:', formData);
-  }, [formData]);
-
-  // Add validation for this step
+  /**
+   * Validates the preferences step
+   * @returns {boolean} Whether the step is valid
+   */
   const isStepFourValid = () => {
     return (
       Array.isArray(formData.food_preferences) && formData.food_preferences.length > 0 &&
