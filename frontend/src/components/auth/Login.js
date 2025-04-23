@@ -16,6 +16,17 @@ import { useAuth } from '../../context/AuthContext';
 import { GoogleLogin } from '@react-oauth/google';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 
+/**
+ * Login component that provides Google authentication for users
+ * 
+ * Features:
+ * - Google OAuth login integration
+ * - Error handling for authentication failures
+ * - Conditional redirection based on user type and URL parameters
+ * - Responsive UI with Material-UI components
+ * 
+ * @returns {JSX.Element} The login interface
+ */
 const Login = () => {
   const [error, setError] = useState('');
   const { loginWithGoogle } = useAuth();
@@ -24,9 +35,17 @@ const Login = () => {
   const formId = searchParams.get('formId');
   const theme = useTheme();
 
+  /**
+   * Handles successful Google authentication
+   * Redirects users based on their type and URL parameters:
+   * - If formId exists in URL: redirects to that specific form
+   * - If user is a candidate: redirects to forms page
+   * - All other users: redirects to dashboard
+   * 
+   * @param {Object} credentialResponse - Response from Google OAuth containing the credential
+   */
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
-      console.log('Google Sign-In successful. Credential:', credentialResponse);
       if (!credentialResponse.credential) {
         throw new Error('No credential received from Google');
       }
@@ -45,7 +64,6 @@ const Login = () => {
         }
       }
     } catch (err) {
-      console.error('Login error:', err);
       const errorMessage = err.response?.data?.error || 'Failed to login with Google';
       setError(errorMessage);
       
@@ -56,8 +74,12 @@ const Login = () => {
     }
   };
 
+  /**
+   * Handles Google authentication errors
+   * 
+   * @param {Error} error - Error object from Google OAuth
+   */
   const handleGoogleError = (error) => {
-    console.error('Google Sign-In Error:', error);
     setError('Google sign-in was unsuccessful');
   };
 

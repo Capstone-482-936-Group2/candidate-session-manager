@@ -11,6 +11,11 @@ import { locationTypesAPI, locationsAPI } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, alpha } from '@mui/material/styles';
 
+/**
+ * Component for managing locations and location types.
+ * Allows administrators to create, edit, and delete location types and locations.
+ * Provides a tabbed interface to switch between managing location types and locations.
+ */
 const LocationManagement = () => {
   // State for location types
   const [locationTypes, setLocationTypes] = useState([]);
@@ -41,18 +46,23 @@ const LocationManagement = () => {
   const { currentUser } = useAuth();
   const theme = useTheme();
 
+  /**
+   * Fetch location types and locations when component mounts
+   */
   useEffect(() => {
     fetchLocationTypes();
     fetchLocations();
   }, []);
 
+  /**
+   * Fetches all location types from the API
+   */
   const fetchLocationTypes = async () => {
     try {
       setLoading(true);
       const response = await locationTypesAPI.getLocationTypes();
       setLocationTypes(response.data);
     } catch (err) {
-      console.error('Error fetching location types:', err);
       setSnackbar({
         open: true,
         message: 'Failed to load location types',
@@ -63,13 +73,15 @@ const LocationManagement = () => {
     }
   };
 
+  /**
+   * Fetches all locations from the API
+   */
   const fetchLocations = async () => {
     try {
       setLoading(true);
       const response = await locationsAPI.getLocations();
       setLocations(response.data);
     } catch (err) {
-      console.error('Error fetching locations:', err);
       setSnackbar({
         open: true,
         message: 'Failed to load locations',
@@ -80,7 +92,10 @@ const LocationManagement = () => {
     }
   };
 
-  // Location Type handlers
+  /**
+   * Handles changes to the location type form fields
+   * @param {Object} e - The event object
+   */
   const handleLocationTypeFormChange = (e) => {
     const { name, value } = e.target;
     setLocationTypeForm(prev => ({
@@ -89,6 +104,9 @@ const LocationManagement = () => {
     }));
   };
 
+  /**
+   * Creates a new location type using the current form data
+   */
   const handleCreateLocationType = async () => {
     try {
       await locationTypesAPI.createLocationType(locationTypeForm);
@@ -100,7 +118,6 @@ const LocationManagement = () => {
         severity: 'success'
       });
     } catch (err) {
-      console.error('Error creating location type:', err);
       setSnackbar({
         open: true,
         message: 'Failed to create location type',
@@ -109,6 +126,9 @@ const LocationManagement = () => {
     }
   };
 
+  /**
+   * Updates an existing location type with the current form data
+   */
   const handleUpdateLocationType = async () => {
     try {
       await locationTypesAPI.updateLocationType(selectedLocationType.id, locationTypeForm);
@@ -120,7 +140,6 @@ const LocationManagement = () => {
         severity: 'success'
       });
     } catch (err) {
-      console.error('Error updating location type:', err);
       setSnackbar({
         open: true,
         message: 'Failed to update location type',
@@ -129,6 +148,10 @@ const LocationManagement = () => {
     }
   };
 
+  /**
+   * Deletes a location type by ID
+   * @param {number} id - The ID of the location type to delete
+   */
   const handleDeleteLocationType = async (id) => {
     if (!window.confirm('Are you sure you want to delete this location type? All locations of this type will also be deleted.')) {
       return;
@@ -144,7 +167,6 @@ const LocationManagement = () => {
         severity: 'success'
       });
     } catch (err) {
-      console.error('Error deleting location type:', err);
       setSnackbar({
         open: true,
         message: 'Failed to delete location type',
@@ -153,7 +175,10 @@ const LocationManagement = () => {
     }
   };
 
-  // Location handlers
+  /**
+   * Handles changes to the location form fields
+   * @param {Object} e - The event object
+   */
   const handleLocationFormChange = (e) => {
     const { name, value } = e.target;
     setLocationForm(prev => ({
@@ -162,6 +187,9 @@ const LocationManagement = () => {
     }));
   };
 
+  /**
+   * Creates a new location using the current form data
+   */
   const handleCreateLocation = async () => {
     try {
       await locationsAPI.createLocation(locationForm);
@@ -173,7 +201,6 @@ const LocationManagement = () => {
         severity: 'success'
       });
     } catch (err) {
-      console.error('Error creating location:', err);
       setSnackbar({
         open: true,
         message: 'Failed to create location',
@@ -182,6 +209,9 @@ const LocationManagement = () => {
     }
   };
 
+  /**
+   * Updates an existing location with the current form data
+   */
   const handleUpdateLocation = async () => {
     try {
       await locationsAPI.updateLocation(selectedLocation.id, locationForm);
@@ -193,7 +223,6 @@ const LocationManagement = () => {
         severity: 'success'
       });
     } catch (err) {
-      console.error('Error updating location:', err);
       setSnackbar({
         open: true,
         message: 'Failed to update location',
@@ -202,6 +231,10 @@ const LocationManagement = () => {
     }
   };
 
+  /**
+   * Deletes a location by ID
+   * @param {number} id - The ID of the location to delete
+   */
   const handleDeleteLocation = async (id) => {
     if (!window.confirm('Are you sure you want to delete this location?')) {
       return;
@@ -216,7 +249,6 @@ const LocationManagement = () => {
         severity: 'success'
       });
     } catch (err) {
-      console.error('Error deleting location:', err);
       setSnackbar({
         open: true,
         message: 'Failed to delete location',

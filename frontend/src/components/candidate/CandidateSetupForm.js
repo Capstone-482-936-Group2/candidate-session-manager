@@ -1085,7 +1085,8 @@ const CandidateSetupForm = () => {
             user.user_type && 
             ['faculty', 'admin', 'superadmin'].includes(user.user_type) && 
             user.first_name && 
-            user.last_name
+            user.last_name &&
+            user.available_for_meetings !== false  // Only show faculty who are available for meetings
           )
           .map(user => ({
             id: user.id,
@@ -1294,23 +1295,12 @@ const CandidateSetupForm = () => {
       open={true}
       maxWidth="md"
       fullWidth
-      onClose={handleClose}
       scroll="paper"
-      disableEscapeKeyDown={submitting} // Only disable if actually submitting
+      disableEscapeKeyDown={true}
+      disableBackdropClick={true}
     >
       <DialogTitle>
         Candidate Setup
-        <IconButton
-          aria-label="close"
-          onClick={handleClose}
-          sx={{
-            position: 'absolute',
-            right: 8,
-            top: 8,
-          }}
-        >
-          <CloseIcon />
-        </IconButton>
       </DialogTitle>
       <DialogContent ref={dialogContentRef} sx={{ minHeight: '60vh' }}>
         <Stepper activeStep={activeStep} sx={{ pt: 3, pb: 5, position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1 }}>

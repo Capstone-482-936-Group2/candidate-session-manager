@@ -1,4 +1,10 @@
-import React from 'react';
+/**
+ * Candidate Profile Dialog component.
+ * Displays a comprehensive modal dialog with detailed information about a candidate's profile.
+ * Allows administrators to view professional information, research interests, travel details,
+ * preferences, and download the candidate's headshot.
+ */
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -37,9 +43,52 @@ import {
 import { API_BASE_URL } from '../../config';
 import { usersAPI } from '../../api/api';
 
+/**
+ * Displays detailed information about a candidate in a modal dialog.
+ * 
+ * @param {Object} props - Component props
+ * @param {boolean} props.open - Controls whether the dialog is displayed
+ * @param {Function} props.onClose - Callback function to close the dialog
+ * @param {Object} props.candidate - Candidate user object including profile data
+ * @returns {JSX.Element} Candidate profile dialog component
+ */
 const CandidateProfileDialog = ({ open, onClose, candidate }) => {
   const theme = useTheme();
+  const [facultyNames, setFacultyNames] = useState({});
 
+  /**
+   * Fetch faculty names for preferred faculty list.
+   * Maps faculty user IDs to their full names for display.
+   */
+  useEffect(() => {
+    const fetchFacultyNames = async () => {
+      if (candidate?.candidate_profile?.preferred_faculty) {
+        try {
+          const response = await usersAPI.getUsers();
+          const facultyMap = {};
+          
+          response.data.forEach(user => {
+            if (user && user.id) {
+              facultyMap[user.id] = `${user.first_name} ${user.last_name}`;
+            }
+          });
+          
+          setFacultyNames(facultyMap);
+        } catch (error) {
+          console.error('Error fetching faculty data:', error);
+        }
+      }
+    };
+    
+    fetchFacultyNames();
+  }, [candidate?.candidate_profile?.preferred_faculty]);
+
+  /**
+   * Resolve headshot URL to absolute URL if needed.
+   * 
+   * @param {string} url - The headshot URL from the candidate profile
+   * @returns {string|null} Absolute URL to the headshot or null if not available
+   */
   const getHeadshotUrl = (url) => {
     if (!url) return null;
     // If the URL is already absolute (starts with http), return as is
@@ -48,6 +97,10 @@ const CandidateProfileDialog = ({ open, onClose, candidate }) => {
     return `${API_BASE_URL}${url}`;
   };
 
+  /**
+   * Handle headshot download through backend API.
+   * Creates a temporary link to download the file directly from the server.
+   */
   const handleDownloadHeadshot = async () => {
     if (candidate?.candidate_profile?.headshot_url) {
       try {
@@ -64,14 +117,30 @@ const CandidateProfileDialog = ({ open, onClose, candidate }) => {
     }
   };
 
-  // Add a helper function to format date ranges
+  /**
+   * Format a date range object to a human-readable string.
+   * 
+   * @param {Object} dateRange - Date range object with startDate and endDate properties
+   * @returns {string|null} Formatted date range string or null if invalid
+   */
   const formatDateRange = (dateRange) => {
     if (!dateRange || !dateRange.startDate || !dateRange.endDate) return null;
     
     return `${new Date(dateRange.startDate).toLocaleDateString()} to ${new Date(dateRange.endDate).toLocaleDateString()}`;
   };
 
-  // Helper to display field with icon
+  /**
+   * Helper component to display a labeled field with an icon.
+   * Provides consistent formatting for profile information fields.
+   * 
+   * @param {Object} props - Component props
+   * @param {JSX.Element} props.icon - Icon element to display with the field
+   * @param {string} props.label - Label text for the field
+   * @param {string|number} props.value - Value to display
+   * @param {number} props.xs - Grid column width (default: 6)
+   * @param {string} props.iconColor - Color for the icon (default: 'primary.main')
+   * @returns {JSX.Element} Labeled field component
+   */
   const LabeledField = ({ icon, label, value, xs = 6, iconColor = 'primary.main' }) => (
     <Grid item xs={12} sm={xs}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start' }}>
@@ -112,6 +181,7 @@ const CandidateProfileDialog = ({ open, onClose, candidate }) => {
         sx: { borderRadius: 2 }
       }}
     >
+      {/* Dialog Header with Candidate Name and Close Button */}
       <DialogTitle sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -236,8 +306,9 @@ const CandidateProfileDialog = ({ open, onClose, candidate }) => {
             </Card>
           </Grid>
 
-          {/* Profile Information */}
+          {/* Profile Information Section */}
           <Grid item xs={12} md={8}>
+            {/* Professional Information Card */}
             <Card 
               elevation={1}
               sx={{ 
@@ -283,6 +354,7 @@ const CandidateProfileDialog = ({ open, onClose, candidate }) => {
               </CardContent>
             </Card>
             
+            {/* Research & Talk Card */}
             <Card 
               elevation={1}
               sx={{ 
@@ -332,6 +404,7 @@ const CandidateProfileDialog = ({ open, onClose, candidate }) => {
               </CardContent>
             </Card>
             
+            {/* Visit Preferences Card */}
             <Card 
               elevation={1}
               sx={{ 
@@ -352,6 +425,7 @@ const CandidateProfileDialog = ({ open, onClose, candidate }) => {
               </Box>
               
               <CardContent sx={{ px: 3, py: 2 }}>
+                {/* Preferred Visit Dates */}
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="subtitle2" fontWeight={600} color="text.secondary" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
                     <EventIcon fontSize="small" sx={{ mr: 1 }} />
@@ -384,6 +458,7 @@ const CandidateProfileDialog = ({ open, onClose, candidate }) => {
                   )}
                 </Box>
                 
+                {/* Preferred Faculty */}
                 <Box sx={{ mb: 2 }}>
                   <Typography variant="subtitle2" fontWeight={600} color="text.secondary" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
                     <PersonIcon fontSize="small" sx={{ mr: 1 }} />
@@ -391,10 +466,10 @@ const CandidateProfileDialog = ({ open, onClose, candidate }) => {
                   </Typography>
                   {profile.preferred_faculty && profile.preferred_faculty.length > 0 ? (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                      {profile.preferred_faculty.map((faculty, index) => (
+                      {profile.preferred_faculty.map((facultyId, index) => (
                         <Chip 
                           key={index}
-                          label={faculty}
+                          label={facultyNames[facultyId] || `Faculty ID: ${facultyId}`}
                           size="small"
                           variant="outlined"
                           sx={{ borderRadius: 1 }}
@@ -406,6 +481,7 @@ const CandidateProfileDialog = ({ open, onClose, candidate }) => {
                   )}
                 </Box>
                 
+                {/* Dietary Information */}
                 <Box>
                   <Typography variant="subtitle2" fontWeight={600} color="text.secondary" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
                     <FoodIcon fontSize="small" sx={{ mr: 1 }} />
@@ -457,6 +533,7 @@ const CandidateProfileDialog = ({ open, onClose, candidate }) => {
               </CardContent>
             </Card>
             
+            {/* Travel Information Card */}
             <Card 
               elevation={1}
               sx={{ 
@@ -524,6 +601,7 @@ const CandidateProfileDialog = ({ open, onClose, candidate }) => {
         </Grid>
       </DialogContent>
       
+      {/* Dialog Footer */}
       <DialogActions sx={{ 
         px: 3, 
         py: 2, 

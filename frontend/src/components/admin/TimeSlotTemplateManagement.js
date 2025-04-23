@@ -11,6 +11,11 @@ import { timeSlotTemplatesAPI, locationTypesAPI, locationsAPI } from '../../api/
 import { useAuth } from '../../context/AuthContext';
 import { useTheme, alpha } from '@mui/material/styles';
 
+/**
+ * Component for managing time slot templates.
+ * Allows administrators to create, edit, and delete templates that can be used
+ * to quickly set up recurring time slots for candidate visits.
+ */
 const TimeSlotTemplateManagement = () => {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,19 +43,24 @@ const TimeSlotTemplateManagement = () => {
   const [filteredLocations, setFilteredLocations] = useState([]);
   const theme = useTheme();
 
+  /**
+   * Fetch templates, location types, and locations on component mount
+   */
   useEffect(() => {
     fetchTemplates();
     fetchLocationTypes();
     fetchLocations();
   }, []);
 
+  /**
+   * Fetches all time slot templates from the API
+   */
   const fetchTemplates = async () => {
     try {
       setLoading(true);
       const response = await timeSlotTemplatesAPI.getTemplates();
       setTemplates(response.data);
     } catch (err) {
-      console.error('Error fetching templates:', err);
       setSnackbar({
         open: true,
         message: 'Failed to load templates',
@@ -61,24 +71,33 @@ const TimeSlotTemplateManagement = () => {
     }
   };
 
+  /**
+   * Fetches all location types from the API
+   */
   const fetchLocationTypes = async () => {
     try {
       const response = await locationTypesAPI.getLocationTypes();
       setLocationTypes(response.data);
     } catch (err) {
-      console.error('Error fetching location types:', err);
+      // Handle error silently to not disrupt the main UI flow
     }
   };
 
+  /**
+   * Fetches all locations from the API
+   */
   const fetchLocations = async () => {
     try {
       const response = await locationsAPI.getLocations();
       setLocations(response.data);
     } catch (err) {
-      console.error('Error fetching locations:', err);
+      // Handle error silently to not disrupt the main UI flow
     }
   };
 
+  /**
+   * Opens the dialog for creating a new template
+   */
   const handleOpenDialog = () => {
     setTemplateForm({
       name: '',
@@ -97,10 +116,17 @@ const TimeSlotTemplateManagement = () => {
     setDialogOpen(true);
   };
 
+  /**
+   * Closes the create template dialog
+   */
   const handleCloseDialog = () => {
     setDialogOpen(false);
   };
 
+  /**
+   * Opens the dialog for editing an existing template
+   * @param {Object} template - The template to edit
+   */
   const handleOpenEditDialog = (template) => {
     setSelectedTemplate(template);
     setTemplateForm({
@@ -120,11 +146,18 @@ const TimeSlotTemplateManagement = () => {
     setEditDialogOpen(true);
   };
 
+  /**
+   * Closes the edit template dialog
+   */
   const handleCloseEditDialog = () => {
     setEditDialogOpen(false);
     setSelectedTemplate(null);
   };
 
+  /**
+   * Handles changes to form fields
+   * @param {Object} e - The event object
+   */
   const handleFormChange = (e) => {
     const { name, value, checked } = e.target;
     
@@ -170,6 +203,11 @@ const TimeSlotTemplateManagement = () => {
     }
   };
 
+  /**
+   * Handles changes to date or time fields
+   * @param {string} field - The field name
+   * @param {Date} value - The new date/time value
+   */
   const handleDateTimeChange = (field, value) => {
     setTemplateForm(prev => ({
       ...prev,
@@ -177,6 +215,11 @@ const TimeSlotTemplateManagement = () => {
     }));
   };
 
+  /**
+   * Handles changes to the location field
+   * @param {Object} event - The event object
+   * @param {Object|string} newValue - The selected location or custom location string
+   */
   const handleLocationChange = (event, newValue) => {
     if (typeof newValue === 'string') {
       setTemplateForm(prev => ({
@@ -199,6 +242,9 @@ const TimeSlotTemplateManagement = () => {
     }
   };
 
+  /**
+   * Creates a new template with the current form data
+   */
   const handleCreateTemplate = async () => {
     try {
       let timeString = null;
@@ -221,7 +267,6 @@ const TimeSlotTemplateManagement = () => {
         severity: 'success'
       });
     } catch (err) {
-      console.error('Error creating template:', err);
       setSnackbar({
         open: true,
         message: 'Failed to create template',
@@ -230,6 +275,9 @@ const TimeSlotTemplateManagement = () => {
     }
   };
 
+  /**
+   * Updates an existing template with the current form data
+   */
   const handleUpdateTemplate = async () => {
     try {
       let timeString = null;
@@ -252,7 +300,6 @@ const TimeSlotTemplateManagement = () => {
         severity: 'success'
       });
     } catch (err) {
-      console.error('Error updating template:', err);
       setSnackbar({
         open: true,
         message: 'Failed to update template',
@@ -261,6 +308,10 @@ const TimeSlotTemplateManagement = () => {
     }
   };
 
+  /**
+   * Deletes a template by ID
+   * @param {number} templateId - The ID of the template to delete
+   */
   const handleDeleteTemplate = async (templateId) => {
     if (!window.confirm('Are you sure you want to delete this template?')) {
       return;
@@ -275,7 +326,6 @@ const TimeSlotTemplateManagement = () => {
         severity: 'success'
       });
     } catch (err) {
-      console.error('Error deleting template:', err);
       setSnackbar({
         open: true,
         message: 'Failed to delete template',
@@ -284,6 +334,9 @@ const TimeSlotTemplateManagement = () => {
     }
   };
 
+  /**
+   * Closes the snackbar notification
+   */
   const handleCloseSnackbar = () => {
     setSnackbar(prev => ({ ...prev, open: false }));
   };

@@ -1,3 +1,7 @@
+/**
+ * Dialog component for faculty members to set up their room/office number.
+ * Appears when a faculty user needs to provide or update their location information.
+ */
 import React, { useState } from 'react';
 import {
   Dialog,
@@ -11,12 +15,24 @@ import {
 } from '@mui/material';
 import { usersAPI } from '../../api/api';
 
+/**
+ * Room setup dialog for faculty members to input their office location.
+ * Cannot be dismissed without completing the setup process.
+ * 
+ * @param {Object} props - Component props
+ * @param {boolean} props.open - Whether the dialog is visible
+ * @param {string|null} props.currentRoomNumber - The user's current room number if it exists
+ * @param {Function} props.onComplete - Callback function executed after successful room setup
+ * @returns {React.ReactNode} Dialog component for room setup
+ */
 const RoomSetupDialog = ({ open, currentRoomNumber, onComplete }) => {
   const [roomNumber, setRoomNumber] = useState(currentRoomNumber || '');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Reset room number when dialog opens with new currentRoomNumber
+  /**
+   * Reset form state when dialog opens with new values
+   */
   React.useEffect(() => {
     if (open) {
       setRoomNumber(currentRoomNumber || '');
@@ -24,6 +40,9 @@ const RoomSetupDialog = ({ open, currentRoomNumber, onComplete }) => {
     }
   }, [open, currentRoomNumber]);
 
+  /**
+   * Handles form submission by validating input and sending to API
+   */
   const handleSubmit = async () => {
     if (!roomNumber.trim()) {
       setError('Room number is required');

@@ -1,9 +1,22 @@
+/**
+ * User registration component that allows new users to create an account.
+ * Captures user details, validates inputs, and handles the registration process.
+ */
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { TextField, Button, Typography, Container, Box, Paper, Alert } from '@mui/material';
 import { useAuth } from '../../context/AuthContext';
 
+/**
+ * Register component for user signup.
+ * Manages form state, validation, and submission to create new user accounts.
+ * Automatically logs the user in after successful registration.
+ * @returns {React.ReactNode} The registration form UI
+ */
 const Register = () => {
+  /**
+   * Form state containing all user registration fields
+   */
   const [formData, setFormData] = useState({
     email: '',
     username: '',
@@ -16,6 +29,10 @@ const Register = () => {
   const { register, login } = useAuth();
   const navigate = useNavigate();
 
+  /**
+   * Handles input field changes and updates form state
+   * @param {React.ChangeEvent<HTMLInputElement>} e - The input change event
+   */
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({
@@ -24,10 +41,15 @@ const Register = () => {
     });
   };
 
+  /**
+   * Handles form submission, validates inputs, and processes registration
+   * @param {React.FormEvent<HTMLFormElement>} e - The form submission event
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     
+    // Validate password confirmation
     if (formData.password !== formData.password2) {
       return setError('Passwords do not match');
     }

@@ -17,6 +17,11 @@ import TemplateSelectionDialog from './TemplateSelectionDialog';
 import FacultyAvailabilitySubmissions from './FacultyAvailabilitySubmissions';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 
+/**
+ * Component for managing candidate visit sections within a recruiting season.
+ * This includes creating and editing candidate sections, managing time slots,
+ * and handling faculty availability imports.
+ */
 const CandidateSectionManagement = () => {
   const { seasonId } = useParams();
   const [season, setSeason] = useState(null);
@@ -62,7 +67,7 @@ const CandidateSectionManagement = () => {
     noEndTime: false
   });
 
-  // Add a state for multiple time slots dialog
+  // State for multiple time slots dialog
   const [multipleDialogOpen, setMultipleDialogOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [multipleForm, setMultipleForm] = useState({
@@ -72,27 +77,33 @@ const CandidateSectionManagement = () => {
     minutesBetween: 60
   });
 
-  // Add a new state for template dialog
+  // State for template dialog
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
 
-  // Near the top of your component where other state variables are defined
+  // State for time slot templates
   const [templates, setTemplates] = useState([]);
 
-  // Update the state to include selectedCandidateSection
+  // State for the currently selected candidate section
   const [selectedCandidateSection, setSelectedCandidateSection] = useState(null);
 
-  // Add these state variables with your other state declarations
+  // State for faculty availability
   const [facultyAvailability, setFacultyAvailability] = useState([]);
   const [availabilityDialogOpen, setAvailabilityDialogOpen] = useState(false);
 
-  // Add new state variables inside the CandidateSectionManagement component:
+  // State for importing candidate date preferences
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [candidateProfile, setCandidateProfile] = useState(null);
   const [selectedDateRange, setSelectedDateRange] = useState(null);
 
-  // Add this with your other state variables
+  // State to track imported availability IDs
   const [importedAvailabilityIds, setImportedAvailabilityIds] = useState({});
 
+  /**
+   * Fetches data needed for the component on mount, including:
+   * - Recruiting season details
+   * - Candidate sections for this season
+   * - Available candidates
+   */
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -102,9 +113,7 @@ const CandidateSectionManagement = () => {
         setSeason(seasonResponse.data);
         
         // Get candidate sections for this season only using the filtered endpoint
-        console.log(`Fetching candidate sections for season ID: ${seasonId}`);
         const sectionsResponse = await candidateSectionsAPI.getCandidateSectionsBySeason(seasonId);
-        console.log('Received candidate sections:', sectionsResponse.data);
         
         // Process the sections to ensure consistent data structure
         const processedSections = sectionsResponse.data.map(section => ({
@@ -119,7 +128,6 @@ const CandidateSectionManagement = () => {
         });
         setImportedAvailabilityIds(initialImportedIds);
         
-        console.log('Processed candidate sections:', processedSections);
         setCandidateSections(processedSections);
         
         // Get all users to populate candidate dropdown
@@ -133,16 +141,12 @@ const CandidateSectionManagement = () => {
           section.candidate.id || (typeof section.candidate === 'number' ? section.candidate : null)
         ).filter(id => id !== null);
         
-        console.log('Candidates who already have sections:', candidatesWithSections);
-        
         const availableCandidatesList = candidates.filter(candidate => 
           !candidatesWithSections.includes(candidate.id)
         );
         
-        console.log('Available candidates for new sections:', availableCandidatesList);
         setAvailableCandidates(availableCandidatesList);
       } catch (err) {
-        console.error('Error fetching data:', err);
         setError(`Failed to load recruiting season data: ${err.message}`);
       } finally {
         setLoading(false);
@@ -152,7 +156,10 @@ const CandidateSectionManagement = () => {
     fetchData();
   }, [seasonId]);
 
-  // Update available candidates when in edit mode to include the currently selected candidate
+  /**
+   * Updates the available candidates list when in edit mode
+   * to include the currently selected candidate
+   */
   useEffect(() => {
     if (selectedSection && users.length > 0) {
       // Get the current candidate ID being edited
@@ -171,17 +178,22 @@ const CandidateSectionManagement = () => {
         candidate.id === editingCandidateId || !candidatesWithSections.includes(candidate.id)
       );
       
-      console.log('Available candidates in edit mode:', updatedAvailableCandidates);
       setAvailableCandidates(updatedAvailableCandidates);
     }
   }, [selectedSection, users, candidateSections]);
 
+  /**
+   * Opens the dialog for creating a new candidate section
+   */
   const handleOpenDialog = () => {
     // Reset selected section to ensure we're not in edit mode
     setSelectedSection(null);
     setDialogOpen(true);
   };
 
+  /**
+   * Closes the create section dialog and resets the form
+   */
   const handleCloseDialog = () => {
     setDialogOpen(false);
     // Reset form
@@ -194,8 +206,11 @@ const CandidateSectionManagement = () => {
     });
   };
 
+  /**
+   * Opens the dialog for editing an existing candidate section
+   * @param {Object} section - The section to edit
+   */
   const handleOpenEditDialog = (section) => {
-    console.log('Opening edit dialog for section:', section);
     setSelectedSection(section);
     
     // Populate form with section data, converting date strings to Date objects
@@ -210,6 +225,9 @@ const CandidateSectionManagement = () => {
     setEditDialogOpen(true);
   };
 
+  /**
+   * Closes the edit section dialog and resets the form
+   */
   const handleCloseEditDialog = () => {
     setEditDialogOpen(false);
     setSelectedSection(null);
@@ -223,17 +241,28 @@ const CandidateSectionManagement = () => {
     });
   };
 
+  /**
+   * Opens the dialog for adding time slots to a section
+   * @param {Object} section - The section to add time slots to
+   */
   const handleOpenTimeSlotDialog = (section) => {
     setSelectedSection(section);
     setSelectedCandidateSection(section);
     setTemplateDialogOpen(true);
   };
 
+  /**
+   * Closes the time slot dialog
+   */
   const handleCloseTimeSlotDialog = () => {
     setTimeSlotDialogOpen(false);
     setSelectedSection(null);
   };
 
+  /**
+   * Handles form changes for the section form
+   * @param {Object} e - The event object
+   */
   const handleSectionFormChange = (e) => {
     const { name, value, checked } = e.target;
     setSectionForm(prev => ({
@@ -242,6 +271,12 @@ const CandidateSectionManagement = () => {
     }));
   };
 
+  /**
+   * Updates a specific time slot in the timeSlots array
+   * @param {number} index - The index of the time slot to update
+   * @param {string} field - The field to update
+   * @param {any} value - The new value
+   */
   const handleTimeSlotChange = (index, field, value) => {
     const updatedTimeSlots = [...timeSlots];
     updatedTimeSlots[index] = {
@@ -251,6 +286,10 @@ const CandidateSectionManagement = () => {
     setTimeSlots(updatedTimeSlots);
   };
 
+  /**
+   * Adds a new time slot to the timeSlots array, 
+   * with start time 1 hour after the last slot's end time
+   */
   const addTimeSlot = () => {
     // Add a new time slot starting 1 hour after the last one
     const lastSlot = timeSlots[timeSlots.length - 1];
@@ -271,17 +310,28 @@ const CandidateSectionManagement = () => {
     ]);
   };
 
+  /**
+   * Removes a time slot from the timeSlots array
+   * @param {number} index - The index of the time slot to remove
+   */
   const removeTimeSlot = (index) => {
     const updatedTimeSlots = timeSlots.filter((_, i) => i !== index);
     setTimeSlots(updatedTimeSlots);
   };
 
-  // Format dates to YYYY-MM-DD without timezone adjustment
+  /**
+   * Formats a date to YYYY-MM-DD without timezone adjustment
+   * @param {Date} date - The date to format
+   * @returns {string|null} The formatted date or null if no date provided
+   */
   const formatDateToUTC = (date) => {
     if (!date) return null;
     return format(new Date(date), 'yyyy-MM-dd');
   };
 
+  /**
+   * Creates a new candidate section with the current form data
+   */
   const handleCreateSection = async () => {
     try {
       // Check if the candidate already has a section
@@ -321,7 +371,6 @@ const CandidateSectionManagement = () => {
         leaving_date: formattedLeavingDate
       };
       
-      console.log('Sending candidate section data:', newSection);
       const response = await candidateSectionsAPI.createCandidateSection(newSection);
       
       // Format the response with the full candidate object before updating state
@@ -354,7 +403,6 @@ const CandidateSectionManagement = () => {
         severity: 'success'
       });
     } catch (err) {
-      console.error('Error creating candidate section:', err);
       const errorDetail = err.response?.data?.detail || 
                           err.response?.data?.message || 
                           (typeof err.response?.data === 'object' ? JSON.stringify(err.response?.data) : err.message);
@@ -367,6 +415,9 @@ const CandidateSectionManagement = () => {
     }
   };
 
+  /**
+   * Updates an existing candidate section with the current form data
+   */
   const handleUpdateSection = async () => {
     if (!selectedSection) return;
     
@@ -408,7 +459,6 @@ const CandidateSectionManagement = () => {
         leaving_date: formattedLeavingDate
       };
       
-      console.log('Sending updated section data:', updatedSection);
       await candidateSectionsAPI.updateCandidateSection(selectedSection.id, updatedSection);
       
       // Refresh the candidate sections data to include time slots
@@ -423,7 +473,6 @@ const CandidateSectionManagement = () => {
         severity: 'success'
       });
     } catch (err) {
-      console.error('Error updating candidate section:', err);
       const errorDetail = err.response?.data?.detail || 
                           err.response?.data?.message || 
                           (typeof err.response?.data === 'object' ? JSON.stringify(err.response?.data) : err.message);
@@ -436,6 +485,9 @@ const CandidateSectionManagement = () => {
     }
   };
 
+  /**
+   * Adds time slots to a candidate section based on the current timeSlots array
+   */
   const handleAddTimeSlots = async () => {
     try {
       // Check for time slot overlaps
@@ -450,20 +502,35 @@ const CandidateSectionManagement = () => {
         return;
       }
       
-      // Process the time slots as before
+      // Process the time slots
       const formattedTimeSlots = timeSlots.map(slot => ({
-        start_time: formatDateToUTC(slot.start_time),
-        end_time: slot.noEndTime ? null : (slot.end_time ? formatDateToUTC(slot.end_time) : null),
-        max_attendees: slot.max_attendees,
+        start_time: slot.start_time.toISOString().slice(0, 19),
+        end_time: slot.noEndTime ? null : (slot.end_time ? slot.end_time.toISOString().slice(0, 19) : null),
+        max_attendees: parseInt(slot.max_attendees),
         location: slot.location || '',
         description: slot.description || '',
         is_visible: slot.is_visible,
         candidate_section: selectedSection.id
       }));
       
-      // Rest of the existing function...
+      // Create each time slot
+      for (const timeSlot of formattedTimeSlots) {
+        await timeSlotsAPI.createTimeSlot(timeSlot);
+      }
+      
+      // Refresh the data
+      const sectionsResponse = await candidateSectionsAPI.getCandidateSectionsBySeason(seasonId);
+      setCandidateSections(sectionsResponse.data);
+      
+      // Close dialog and show success message
+      handleCloseTimeSlotDialog();
+      setSnackbar({
+        open: true,
+        message: `Successfully created ${formattedTimeSlots.length} time slots`,
+        severity: 'success'
+      });
+      
     } catch (err) {
-      console.error('Error adding time slots:', err);
       setSnackbar({
         open: true,
         message: 'Failed to add time slots: ' + (err.response?.data?.message || err.response?.data?.detail || err.message),
@@ -472,6 +539,10 @@ const CandidateSectionManagement = () => {
     }
   };
 
+  /**
+   * Deletes a candidate section and its associated time slots
+   * @param {number} sectionId - The ID of the section to delete
+   */
   const handleDeleteSection = async (sectionId) => {
     if (!window.confirm('Are you sure you want to delete this candidate section? This will also delete all associated time slots. This action cannot be undone.')) {
       return;
@@ -502,7 +573,6 @@ const CandidateSectionManagement = () => {
         severity: 'success'
       });
     } catch (err) {
-      console.error('Error deleting candidate section:', err);
       setSnackbar({
         open: true,
         message: 'Failed to delete candidate section',
@@ -511,6 +581,10 @@ const CandidateSectionManagement = () => {
     }
   };
 
+  /**
+   * Deletes a time slot
+   * @param {number} timeSlotId - The ID of the time slot to delete
+   */
   const handleDeleteTimeSlot = async (timeSlotId) => {
     if (!window.confirm('Are you sure you want to delete this time slot? All registrations for this time slot will also be deleted. This action cannot be undone.')) {
       return;
@@ -529,7 +603,6 @@ const CandidateSectionManagement = () => {
         severity: 'success'
       });
     } catch (err) {
-      console.error('Error deleting time slot:', err);
       setSnackbar({
         open: true,
         message: 'Failed to delete time slot',
@@ -538,10 +611,17 @@ const CandidateSectionManagement = () => {
     }
   };
 
+  /**
+   * Closes the snackbar notification
+   */
   const handleCloseSnackbar = () => {
     setSnackbar(prev => ({ ...prev, open: false }));
   };
 
+  /**
+   * Opens the dialog to edit a time slot
+   * @param {Object} slot - The time slot to edit
+   */
   const handleOpenEditTimeSlotDialog = (slot) => {
     const hasNoEndTime = !slot.end_time;
     setTimeSlotForm({
@@ -557,6 +637,9 @@ const CandidateSectionManagement = () => {
     setEditTimeSlotDialogOpen(true);
   };
 
+  /**
+   * Closes the time slot edit dialog and resets the form
+   */
   const handleCloseEditTimeSlotDialog = () => {
     setEditTimeSlotDialogOpen(false);
     setSelectedTimeSlot(null);
@@ -572,6 +655,11 @@ const CandidateSectionManagement = () => {
     });
   };
 
+  /**
+   * Handles changes to time slot form fields
+   * @param {string} field - The field to update
+   * @param {any} value - The new value
+   */
   const handleTimeSlotFormChange = (field, value) => {
     setTimeSlotForm(prev => ({
       ...prev,
@@ -579,6 +667,9 @@ const CandidateSectionManagement = () => {
     }));
   };
 
+  /**
+   * Updates an existing time slot with the current form data
+   */
   const handleUpdateTimeSlot = async () => {
     try {
       // Check for overlaps
@@ -606,7 +697,6 @@ const CandidateSectionManagement = () => {
         is_visible: timeSlotForm.noEndTime ? false : timeSlotForm.is_visible
       };
       
-      console.log('Updating time slot:', updatedData);
       await timeSlotsAPI.updateTimeSlot(selectedTimeSlot.id, updatedData);
       
       // Refresh the candidate sections data to include updated time slot
@@ -621,7 +711,6 @@ const CandidateSectionManagement = () => {
         severity: 'success'
       });
     } catch (err) {
-      console.error('Error updating time slot:', err);
       setSnackbar({
         open: true,
         message: 'Failed to update time slot: ' + (err.response?.data?.message || err.response?.data?.detail || err.message),
@@ -630,10 +719,15 @@ const CandidateSectionManagement = () => {
     }
   };
 
-  // Update handleTemplateSelect
+  /**
+   * Handles selection of a time slot template and configures the multiple slots dialog
+   * @param {Object} template - The selected template
+   * @param {number} numberOfSlots - Number of slots to create
+   * @param {number} intervalMinutes - Minutes between slots
+   * @param {number} intervalDays - Days between slots
+   * @param {Date} startDate - Starting date for slots
+   */
   const handleTemplateSelect = (template, numberOfSlots, intervalMinutes, intervalDays, startDate) => {
-    console.log('Selecting template:', template);
-    
     // Get the template's start time
     let startTime = new Date(startDate);
     if (template.start_time) {
@@ -656,17 +750,21 @@ const CandidateSectionManagement = () => {
     setMultipleDialogOpen(true);
   };
 
-  // Update handleMultipleFormChange
+  /**
+   * Handles changes to the multiple time slots form
+   * @param {Object} e - The event object
+   */
   const handleMultipleFormChange = (e) => {
     const { name, value } = e.target;
     setMultipleForm(prev => ({
       ...prev,
       [name]: value === '' ? '' : Number(value)
     }));
-    console.log('Updated form:', name, value); // Debug log
   };
 
-  // Update handleSubmitMultipleSlots
+  /**
+   * Creates multiple time slots based on the selected template and multiple form settings
+   */
   const handleSubmitMultipleSlots = async () => {
     try {
       setLoading(true);
@@ -723,10 +821,8 @@ const CandidateSectionManagement = () => {
       // Create all time slots
       for (const slot of timeSlots) {
         try {
-          const response = await timeSlotsAPI.createTimeSlot(slot);
-          console.log('Created time slot:', response.data);
+          await timeSlotsAPI.createTimeSlot(slot);
         } catch (error) {
-          console.error('Failed to create time slot:', error.response?.data);
           throw new Error(JSON.stringify(error.response?.data || {}));
         }
       }
@@ -742,7 +838,6 @@ const CandidateSectionManagement = () => {
       setTemplateDialogOpen(false);
       
     } catch (error) {
-      console.error('Error creating time slots:', error);
       setSnackbar({
         open: true,
         message: `Failed to create time slots: ${error.message}`,
@@ -753,13 +848,18 @@ const CandidateSectionManagement = () => {
     }
   };
 
-  // Add these handler functions if they don't exist
+  /**
+   * Closes the template selection dialog and resets related states
+   */
   const handleCloseTemplateDialog = () => {
     setTemplateDialogOpen(false);
     setMultipleDialogOpen(false); // Also close multiple dialog if open
     setSelectedTemplate(null);
   };
 
+  /**
+   * Opens the dialog for creating a custom time slot
+   */
   const handleCustomTimeSlot = () => {
     const now = new Date();
     const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
@@ -777,14 +877,15 @@ const CandidateSectionManagement = () => {
     setTimeSlotDialogOpen(true);
   };
 
-  // Add this with your other functions
+  /**
+   * Fetches all candidate sections from the API
+   */
   const fetchCandidateSections = async () => {
     try {
       setLoading(true);
       const response = await candidateSectionsAPI.getCandidateSections();
       setCandidateSections(response.data);
     } catch (err) {
-      console.error('Error fetching candidate sections:', err);
       setSnackbar({
         open: true,
         message: 'Failed to load candidate sections',
@@ -795,14 +896,15 @@ const CandidateSectionManagement = () => {
     }
   };
 
+  /**
+   * Fetches time slot templates on component mount
+   */
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
         const response = await timeSlotTemplatesAPI.getTemplates();
-        console.log('Fetched templates:', response.data);
         setTemplates(response.data);
       } catch (err) {
-        console.error('Error fetching templates:', err);
         setSnackbar({
           open: true,
           message: 'Failed to load templates',
@@ -814,7 +916,10 @@ const CandidateSectionManagement = () => {
     fetchTemplates();
   }, []);
 
-  // Add this function to fetch faculty availability for a candidate section
+  /**
+   * Fetches faculty availability for a candidate section
+   * @param {number} sectionId - The section ID to fetch availability for
+   */
   const fetchFacultyAvailability = async (sectionId) => {
     try {
       const response = await facultyAvailabilityAPI.getAvailabilityByCandidate(sectionId);
@@ -839,7 +944,6 @@ const CandidateSectionManagement = () => {
       
       setFacultyAvailability(filteredAvailability);
     } catch (err) {
-      console.error('Error fetching faculty availability:', err);
       setSnackbar({
         open: true,
         message: 'Failed to load faculty availability',
@@ -848,7 +952,10 @@ const CandidateSectionManagement = () => {
     }
   };
 
-  // Add a function to handle opening the import availability dialog
+  /**
+   * Opens the dialog to import faculty availability
+   * @param {Object} section - The section to import availability for
+   */
   const handleOpenAvailabilityDialog = async (section) => {
     setSelectedSection(section);
     setSelectedCandidateSection(section);
@@ -856,12 +963,17 @@ const CandidateSectionManagement = () => {
     setAvailabilityDialogOpen(true);
   };
 
-  // Add a function to close the dialog
+  /**
+   * Closes the faculty availability dialog
+   */
   const handleCloseAvailabilityDialog = () => {
     setAvailabilityDialogOpen(false);
   };
 
-  // Add a function to import faculty availability as time slots
+  /**
+   * Imports faculty availability as time slots for a candidate section
+   * @param {number} availabilityId - The ID of the availability to import
+   */
   const handleImportAvailability = async (availabilityId) => {
     try {
       const response = await facultyAvailabilityAPI.importAvailability(
@@ -919,7 +1031,6 @@ const CandidateSectionManagement = () => {
         severity: 'success'
       });
     } catch (err) {
-      console.error('Error importing faculty availability:', err);
       setSnackbar({
         open: true,
         message: 'Failed to import faculty availability',
@@ -928,7 +1039,9 @@ const CandidateSectionManagement = () => {
     }
   };
 
-  // Add these functions to the component to handle the import functionality
+  /**
+   * Opens the dialog to import candidate's preferred date ranges
+   */
   const handleOpenImportDialog = async () => {
     // Only open import dialog if a candidate is selected
     if (!sectionForm.candidate) {
@@ -957,7 +1070,6 @@ const CandidateSectionManagement = () => {
         });
       }
     } catch (error) {
-      console.error('Error handling import dialog:', error);
       setSnackbar({
         open: true,
         message: 'Failed to load candidate profile data',
@@ -966,11 +1078,17 @@ const CandidateSectionManagement = () => {
     }
   };
 
+  /**
+   * Closes the import dates dialog
+   */
   const handleCloseImportDialog = () => {
     setImportDialogOpen(false);
     setSelectedDateRange(null);
   };
 
+  /**
+   * Imports the selected date range into the section form
+   */
   const handleImportDateRange = () => {
     if (!selectedDateRange) {
       setSnackbar({
@@ -1000,14 +1118,24 @@ const CandidateSectionManagement = () => {
     });
   };
 
-  // Format date ranges for display
+  /**
+   * Formats a date range object for display
+   * @param {Object} dateRange - The date range object containing startDate and endDate
+   * @returns {string|null} Formatted date range string or null if invalid
+   */
   const formatDateRange = (dateRange) => {
     if (!dateRange || !dateRange.startDate || !dateRange.endDate) return null;
     
     return `${format(new Date(dateRange.startDate), 'MMMM d, yyyy')} to ${format(new Date(dateRange.endDate), 'MMMM d, yyyy')}`;
   };
 
-  // Add this helper function after the existing ones
+  /**
+   * Checks if new time slots overlap with existing ones
+   * @param {Array} newTimeSlots - Array of new time slots to check
+   * @param {Array} existingTimeSlots - Array of existing time slots
+   * @param {number|null} currentTimeSlotId - ID of time slot being edited (to exclude from check)
+   * @returns {Object} Result with hasOverlap flag and error message if applicable
+   */
   const checkForOverlaps = (newTimeSlots, existingTimeSlots, currentTimeSlotId = null) => {
     // Filter out the current time slot being edited (if any)
     const otherTimeSlots = existingTimeSlots.filter(slot => 

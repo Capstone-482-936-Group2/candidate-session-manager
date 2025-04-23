@@ -23,6 +23,17 @@ import {
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { timeSlotTemplatesAPI, locationsAPI } from '../../api/api';
 
+/**
+ * Dialog component for selecting time slot templates.
+ * Allows users to select a predefined template and configure additional settings
+ * like number of slots, interval between slots, and start date.
+ * 
+ * @param {Object} props - Component props
+ * @param {boolean} props.open - Whether the dialog is open
+ * @param {Function} props.onClose - Function to close the dialog
+ * @param {Function} props.onSelectTemplate - Function called when a template is selected with configuration
+ * @param {Function} props.onCustomOption - Function called when user chooses to create a custom time slot
+ */
 const TemplateSelectionDialog = ({ open, onClose, onSelectTemplate, onCustomOption }) => {
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +46,9 @@ const TemplateSelectionDialog = ({ open, onClose, onSelectTemplate, onCustomOpti
   const [locations, setLocations] = useState([]);
   const [selectedLocation, setSelectedLocation] = useState(null);
 
+  /**
+   * Fetch templates and locations when the dialog opens
+   */
   useEffect(() => {
     if (open) {
       fetchTemplates();
@@ -42,12 +56,18 @@ const TemplateSelectionDialog = ({ open, onClose, onSelectTemplate, onCustomOpti
     }
   }, [open]);
 
+  /**
+   * Reset interval minutes when days interval is set
+   */
   useEffect(() => {
     if (intervalDays > 0) {
       setIntervalMinutes(0);
     }
   }, [intervalDays]);
 
+  /**
+   * Fetches time slot templates from the API
+   */
   const fetchTemplates = async () => {
     try {
       setLoading(true);
@@ -55,22 +75,27 @@ const TemplateSelectionDialog = ({ open, onClose, onSelectTemplate, onCustomOpti
       setTemplates(response.data);
       setError(null);
     } catch (err) {
-      console.error('Error fetching templates:', err);
       setError('Failed to load templates');
     } finally {
       setLoading(false);
     }
   };
 
+  /**
+   * Fetches available locations from the API
+   */
   const fetchLocations = async () => {
     try {
       const response = await locationsAPI.getLocations();
       setLocations(response.data);
     } catch (err) {
-      console.error('Error fetching locations:', err);
+      // Handle error silently to not disrupt the UI flow
     }
   };
 
+  /**
+   * Handles template selection and passes configuration to parent component
+   */
   const handleSelectTemplate = () => {
     if (!selectedTemplateId) return;
     
@@ -87,6 +112,9 @@ const TemplateSelectionDialog = ({ open, onClose, onSelectTemplate, onCustomOpti
     }
   };
 
+  /**
+   * Handles the custom time slot option
+   */
   const handleCustomOption = () => {
     onCustomOption();
     onClose();

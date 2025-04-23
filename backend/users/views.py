@@ -1,3 +1,7 @@
+"""
+Views for the user management system.
+Provides API endpoints for user authentication, profile management, and admin functionalities.
+"""
 from django.shortcuts import render
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
@@ -39,9 +43,18 @@ logger = logging.getLogger(__name__)
 # Create your views here.
 
 class UserViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing user accounts.
+    Provides CRUD operations for user management and additional actions for authentication,
+    profile setup, role management, and file operations.
+    """
     queryset = User.objects.all()
     
     def get_serializer_class(self):
+        """
+        Return the appropriate serializer based on the current action.
+        Uses different serializers for create, update, and retrieve operations.
+        """
         if self.action == 'create':
             return RegisterSerializer
         elif self.action in ['update', 'partial_update'] and self.request.user.is_admin:
@@ -49,6 +62,10 @@ class UserViewSet(viewsets.ModelViewSet):
         return UserSerializer
     
     def get_permissions(self):
+        """
+        Return the appropriate permissions based on the current action.
+        Different actions require different authentication levels.
+        """
         if self.action in ['google_login', 'logout']:
             return [permissions.AllowAny()]
         elif self.action in ['me', 'list', 'retrieve', 'complete_candidate_setup']:
@@ -62,6 +79,11 @@ class UserViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
     
     def get_queryset(self):
+        """
+        Filter the queryset based on the user's permissions.
+        Superadmins can see all users, admins can see all except superadmins,
+        regular users have limited view access.
+        """
         user = self.request.user
         if user.is_authenticated:
             if user.is_superadmin:
@@ -77,6 +99,10 @@ class UserViewSet(viewsets.ModelViewSet):
         return User.objects.none()
 
     def get_serializer_context(self):
+        """
+        Add additional context to the serializer.
+        Includes flags for superadmin status and whether to include profile data.
+        """
         context = super().get_serializer_context()
         context['is_superadmin'] = self.request.user.is_superadmin if self.request.user.is_authenticated else False
         context['include_profile'] = self.request.query_params.get('include_profile', False)
@@ -86,32 +112,27 @@ class UserViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['post'])
     def google_login(self, request):
+        """
+        Handle Google OAuth login.
+        Verifies the Google ID token, creates or retrieves the user,
+        and logs them into the system.
+        """
         try:
             # Check if request.data is a QueryDict, dict, or something else
-            print(f"Request data type: {type(request.data)}")
-            print(f"Request data contents: {request.data}")
-            
-            # Handle different types of request.data
             if hasattr(request.data, 'get'):
                 token = request.data.get('credential')
-                print(f"Got token using get(): {token}")
             elif isinstance(request.data, dict):
                 token = request.data.get('credential')
-                print(f"Got token from dict: {token}")
             else:
                 # Fallback if request.data is neither a dict nor has get method
-                print("request.data has no get method and is not a dict")
                 try:
                     # Try to access as a string directly
                     if 'credential' in request.data:
                         token = request.data['credential']
-                        print(f"Got token via direct access: {token}")
                     else:
                         # Last resort - try to parse the entire body as the token
                         token = request.data
-                        print(f"Using entire request.data as token: {token}")
                 except Exception as e:
-                    print(f"Error accessing token: {str(e)}")
                     token = None
             
             if not token:
@@ -119,12 +140,6 @@ class UserViewSet(viewsets.ModelViewSet):
                     {'error': 'Token is required'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-
-            # Print debug information
-            print(f"Content-Type: {request.content_type}")
-            print(f"Using client ID: {settings.GOOGLE_CLIENT_ID}")
-            print(f"Token type: {type(token)}")
-            print(f"Token first 20 chars: {token[:20] if isinstance(token, str) else 'Not a string'}")
             
             # Verify the token - we're being extra careful with the parsing
             try:
@@ -134,10 +149,7 @@ class UserViewSet(viewsets.ModelViewSet):
                     settings.GOOGLE_CLIENT_ID,
                     clock_skew_in_seconds=10
                 )
-                print("Token successfully verified!")
             except Exception as e:
-                print(f"Token verification error: {str(e)}")
-                print(f"Token value causing error: {token}")
                 return Response(
                     {'error': f'Token verification failed: {str(e)}'},
                     status=status.HTTP_401_UNAUTHORIZED
@@ -179,13 +191,11 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response(serializer.data)
 
         except ValueError as e:
-            print(f"Token verification failed: {str(e)}")
             return Response(
                 {'error': f'Invalid token: {str(e)}'},
                 status=status.HTTP_401_UNAUTHORIZED
             )
         except Exception as e:
-            print(f"Error during Google login: {str(e)}")
             return Response(
                 {'error': str(e)},
                 status=status.HTTP_401_UNAUTHORIZED
@@ -193,23 +203,31 @@ class UserViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['post'])
     def logout(self, request):
+        """
+        Log out the current user.
+        Ends the user's session.
+        """
         logout(request)
         return Response(status=status.HTTP_204_NO_CONTENT)
     
     @action(detail=False, methods=['get'])
     def me(self, request):
+        """
+        Return the current user's profile.
+        Provides the authenticated user's details.
+        """
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
     
     @action(detail=False, methods=['post'])
     def register(self, request):
-        print("Create method called with data:", request.data)
-        print("User making request:", request.user)
-        print("Is user admin?", request.user.is_admin)
-        
+        """
+        Register a new user.
+        Creates a new user account with the provided information.
+        Only available to admin users.
+        """
         # Only allow admins to create users
         if not request.user.is_admin:
-            print("User is not admin, returning 403")
             return Response(
                 {'error': 'Only administrators can create users'},
                 status=status.HTTP_403_FORBIDDEN
@@ -217,26 +235,27 @@ class UserViewSet(viewsets.ModelViewSet):
 
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
-            print("Serializer is valid, attempting to save")
             try:
                 user = serializer.save()
-                print("User created successfully:", user.email)
                 return Response(
                     self.get_serializer(user).data,
                     status=status.HTTP_201_CREATED
                 )
             except Exception as e:
-                print("Error saving user:", str(e))
                 return Response(
                     {'error': f'Error creating user: {str(e)}'},
                     status=status.HTTP_400_BAD_REQUEST
                 )
         else:
-            print("Serializer validation failed:", serializer.errors)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     @action(detail=True, methods=['patch'])
     def update_role(self, request, pk=None):
+        """
+        Update a user's role.
+        Changes a user's type (e.g., from candidate to faculty).
+        Only available to superadmins with restrictions on changing other superadmins.
+        """
         user = self.get_object()
         
         # Only superadmins can change roles
@@ -272,8 +291,11 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer = UserSerializer(user)
         return Response(serializer.data)
 
-    # Add a custom list method to handle pagination
     def list(self, request, *args, **kwargs):
+        """
+        List users with appropriate filtering.
+        Returns a list of users with data filtered by the requestor's permissions.
+        """
         queryset = self.filter_queryset(self.get_queryset())
         
         # Use different serializers based on user type
@@ -286,6 +308,10 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
+        """
+        Delete a user account.
+        Only superadmins can delete users, with restrictions on deleting superadmins.
+        """
         user = self.get_object()
         
         # Only superadmins can delete users
@@ -313,6 +339,11 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def send_form_link(self, request):
+        """
+        Send a form link to a candidate via email.
+        Generates a URL with form ID and sends it to the specified email address.
+        Only available to admin users.
+        """
         if not request.user.is_admin:
             return Response({'error': 'Only administrators can send form links'}, status=403)
         
@@ -355,6 +386,11 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def complete_candidate_setup(self, request):
+        """
+        Complete the setup process for a candidate's profile.
+        Updates all candidate profile information including personal, academic,
+        and travel details. Handles file transfers to S3 storage if needed.
+        """
         try:
             user = request.user
             logger.info(f"Starting candidate setup completion for user {user.email}")
@@ -471,6 +507,10 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def complete_room_setup(self, request):
+        """
+        Complete the room setup process for faculty and admin users.
+        Updates the user's room number and marks setup as completed.
+        """
         user = request.user
         room_number = request.data.get('room_number')
         
@@ -486,6 +526,10 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def test_s3(self, request):
+        """
+        Test S3 storage configuration.
+        Creates, uploads, downloads, and deletes a test file to verify S3 functionality.
+        """
         try:
             # Test direct boto3 connection
             s3_client = boto3.client(
@@ -537,6 +581,10 @@ class UserViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], parser_classes=[MultiPartParser])
     def upload_headshot(self, request):
+        """
+        Upload a headshot image for a candidate.
+        Validates file type and size, then stores the image in the candidate's profile.
+        """
         try:
             logger.info("Starting headshot upload")
             
@@ -604,7 +652,8 @@ class UserViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def download_headshot(self, request):
         """
-        Download a candidate's headshot from S3
+        Download a candidate's headshot.
+        Retrieves the image from S3 or local storage and returns it as a file response.
         """
         url = request.query_params.get('url')
         if not url:
@@ -679,9 +728,39 @@ class UserViewSet(viewsets.ModelViewSet):
             logger.error(f"Error downloading headshot: {str(e)}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    def update(self, request, *args, **kwargs):
+        """
+        Update a user account.
+        Handles the standard update process with debugging information.
+        """
+        return super().update(request, *args, **kwargs)
+
+    @action(detail=False, methods=['post'])
+    def test_bool_field(self, request):
+        """
+        Test boolean field handling.
+        Updates and verifies a boolean field's value for testing purposes.
+        """
+        user_id = request.data.get('user_id')
+        value = request.data.get('value')
+        
+        user = User.objects.get(id=user_id)
+        user.available_for_meetings = value
+        user.save()
+        
+        # Verify after save
+        refreshed_user = User.objects.get(id=user_id)
+        
+        return Response({"before": value, "after": refreshed_user.available_for_meetings})
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def send_form_link(request):
+    """
+    Send a form link to a candidate via email.
+    Standalone API view that generates a URL with form ID and sends it to
+    the specified email address. Only available to admin users.
+    """
     if not request.user.is_admin:
         return Response({'error': 'Only administrators can send form links'}, status=403)
     
@@ -725,6 +804,10 @@ def send_form_link(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def complete_room_setup(request):
+    """
+    Complete the room setup process for faculty and admin users.
+    Standalone API view that updates the user's room number and marks setup as completed.
+    """
     user = request.user
     room_number = request.data.get('room_number')
     
@@ -740,6 +823,11 @@ def complete_room_setup(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def test_s3_upload(request):
+    """
+    Test S3 storage configuration.
+    Standalone API view that creates, uploads, downloads, and deletes a test file
+    to verify S3 functionality.
+    """
     try:
         # Test direct boto3 connection
         s3_client = boto3.client(
@@ -793,6 +881,11 @@ def test_s3_upload(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def upload_headshot(request):
+    """
+    Upload a headshot image for a candidate.
+    Standalone API view that validates file type and size, then stores the image
+    in the candidate's profile.
+    """
     try:
         if 'file' not in request.FILES:
             return Response(

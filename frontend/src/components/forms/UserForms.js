@@ -952,7 +952,8 @@ const UserForms = () => {
             <DialogContent sx={{ p: 0, overflow: 'hidden' }}>
               <FormSubmission 
                 formId={selectedForm.id}
-                readOnly={Boolean(submissions[selectedForm.id]?.is_completed)}
+                isViewOnly={Boolean(submissions[selectedForm.id]?.is_completed)}
+                submission={submissions[selectedForm.id]}
                 onSubmitted={handleFormSubmitted}
               />
             </DialogContent>

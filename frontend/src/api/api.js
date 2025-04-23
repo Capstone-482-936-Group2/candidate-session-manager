@@ -1,3 +1,8 @@
+/**
+ * API client for the candidate session manager.
+ * Provides centralized access to all backend API endpoints through axios.
+ * Handles authentication, CSRF protection, and request/response formatting.
+ */
 import axios from 'axios';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -11,7 +16,7 @@ const api = axios.create({
   },
 });
 
-// Add this function after creating the api instance
+// Add CSRF token to non-GET requests
 api.interceptors.request.use(config => {
   // Get CSRF token from cookie
   const csrfToken = document.cookie
@@ -26,7 +31,10 @@ api.interceptors.request.use(config => {
   return config;
 });
 
-// Authentication API
+/**
+ * Authentication API functions.
+ * Handles user login, logout, and registration operations.
+ */
 export const authAPI = {
   googleLogin: async (data) => {
     return await api.post('/users/google_login/', data);
@@ -36,7 +44,10 @@ export const authAPI = {
   getCurrentUser: () => api.get('/users/me/'),
 };
 
-// User Management API
+/**
+ * User Management API functions.
+ * Handles CRUD operations for users and user profiles.
+ */
 export const usersAPI = {
   getUsers: () => api.get('/users/', {
     params: {
@@ -111,7 +122,10 @@ export const usersAPI = {
   }),
 };
 
-// Recruiting Seasons API (formerly Sessions API)
+/**
+ * Recruiting Seasons API functions.
+ * Handles operations for managing recruitment sessions/seasons.
+ */
 export const seasonsAPI = {
   getSeasons: () => api.get('/seasons/'),
   getSeasonById: (id) => api.get(`/seasons/${id}/`),
@@ -120,7 +134,10 @@ export const seasonsAPI = {
   deleteSeason: (id) => api.delete(`/seasons/${id}/`),
 };
 
-// Candidate Sections API 
+/**
+ * Candidate Sections API functions.
+ * Handles operations for managing candidate sections within seasons.
+ */
 export const candidateSectionsAPI = {
   getCandidateSections: () => api.get('/candidate-sections/'),
   getCandidateSectionById: (id) => api.get(`/candidate-sections/${id}/`),
@@ -130,7 +147,10 @@ export const candidateSectionsAPI = {
   deleteCandidateSection: (id) => api.delete(`/candidate-sections/${id}/`),
 };
 
-// Time Slots API
+/**
+ * Time Slots API functions.
+ * Handles operations for managing time slots within candidate sections.
+ */
 export const timeSlotsAPI = {
   getTimeSlots: () => api.get('/timeslots/'),
   getTimeSlotById: (id) => api.get(`/timeslots/${id}/`),
@@ -150,7 +170,10 @@ export const timeSlotsAPI = {
   unregisterFromTimeSlot: (id) => api.post(`/timeslots/${id}/unregister/`),
 };
 
-// Time Slot Templates API
+/**
+ * Time Slot Templates API functions.
+ * Handles operations for managing reusable time slot templates.
+ */
 export const timeSlotTemplatesAPI = {
   getTemplates: () => api.get('/timeslot-templates/'),
   getTemplateById: (id) => api.get(`/timeslot-templates/${id}/`),
@@ -159,7 +182,10 @@ export const timeSlotTemplatesAPI = {
   deleteTemplate: (id) => api.delete(`/timeslot-templates/${id}/`)
 };
 
-// Location Types API
+/**
+ * Location Types API functions.
+ * Handles operations for managing location types (e.g., virtual, classroom).
+ */
 export const locationTypesAPI = {
   getLocationTypes: () => api.get('/location-types/'),
   getLocationTypeById: (id) => api.get(`/location-types/${id}/`),
@@ -168,7 +194,10 @@ export const locationTypesAPI = {
   deleteLocationType: (id) => api.delete(`/location-types/${id}/`)
 };
 
-// Locations API
+/**
+ * Locations API functions.
+ * Handles operations for managing physical or virtual locations.
+ */
 export const locationsAPI = {
   getLocations: (params) => api.get('/locations/', { params }),
   getLocationById: (id) => api.get(`/locations/${id}/`),
@@ -177,6 +206,10 @@ export const locationsAPI = {
   deleteLocation: (id) => api.delete(`/locations/${id}/`)
 };
 
+/**
+ * Faculty Availability API functions.
+ * Handles operations for managing faculty availability for candidate meetings.
+ */
 export const facultyAvailabilityAPI = {
   getAvailability: () => api.get('/faculty-availability/'),
   getAvailabilityById: (id) => api.get(`/faculty-availability/${id}/`),
@@ -192,6 +225,10 @@ export const facultyAvailabilityAPI = {
   },
 };
 
+/**
+ * Availability Invitation API functions.
+ * Handles operations for inviting faculty to submit availability.
+ */
 export const availabilityInvitationAPI = {
   getInvitations: () => api.get('/availability-invitations/'),
   inviteFaculty: (facultyIds, candidateSectionIds, sendEmail = true) => {
@@ -208,6 +245,10 @@ export const availabilityInvitationAPI = {
   },
 };
 
+/**
+ * Test API functions.
+ * Utility endpoints for testing system functionality.
+ */
 export const testAPI = {
   testS3: () => api.post('/users/test_s3/'),
 };

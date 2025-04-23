@@ -42,6 +42,12 @@ import { seasonsAPI, candidateSectionsAPI } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
 
+/**
+ * Component for managing recruiting seasons.
+ * 
+ * Allows administrators to create, view, and delete recruiting seasons,
+ * and provides links to manage candidates for each season.
+ */
 const RecruitingSeasonManagement = () => {
   const [seasons, setSeasons] = useState([]);
   const [candidateSections, setCandidateSections] = useState([]);
@@ -61,26 +67,25 @@ const RecruitingSeasonManagement = () => {
 
   const { currentUser } = useAuth();
 
+  /**
+   * Fetches all recruiting seasons and their associated candidate sections
+   * when the component mounts
+   */
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
         // First, get all recruiting seasons
-        console.log('Fetching all recruiting seasons');
         const seasonsResponse = await seasonsAPI.getSeasons();
         setSeasons(seasonsResponse.data);
         
         // Get all candidate sections in one call to minimize API requests
-        console.log('Fetching all candidate sections');
         const allSectionsResponse = await candidateSectionsAPI.getCandidateSections();
-        console.log('All sections response:', allSectionsResponse.data);
         
         // Group sections by season
         const allSections = [];
         
         for (const season of seasonsResponse.data) {
-          console.log(`Processing sections for season ID: ${season.id}`);
-          
           // Filter sections for this season
           const seasonSections = allSectionsResponse.data.filter(section => {
             const sectionSessionId = 
@@ -101,14 +106,11 @@ const RecruitingSeasonManagement = () => {
             seasonId: season.id
           }));
           
-          console.log(`Found ${processedSections.length} sections for season ${season.id}`);
           allSections.push(...processedSections);
         }
         
-        console.log('All sections with explicit season IDs:', allSections);
         setCandidateSections(allSections);
       } catch (err) {
-        console.error('Error fetching data:', err);
         setError(`Failed to load recruiting seasons data: ${err.message}`);
       } finally {
         setLoading(false);
@@ -118,10 +120,16 @@ const RecruitingSeasonManagement = () => {
     fetchData();
   }, []);
 
+  /**
+   * Opens the dialog for creating a new recruiting season
+   */
   const handleOpenDialog = () => {
     setDialogOpen(true);
   };
 
+  /**
+   * Closes the create season dialog and resets the form
+   */
   const handleCloseDialog = () => {
     setDialogOpen(false);
     // Reset form
@@ -133,6 +141,10 @@ const RecruitingSeasonManagement = () => {
     });
   };
 
+  /**
+   * Handles form field changes for the season form
+   * @param {Object} e - The event object
+   */
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setSeasonForm(prev => ({
@@ -141,6 +153,11 @@ const RecruitingSeasonManagement = () => {
     }));
   };
 
+  /**
+   * Handles date field changes for the season form
+   * @param {string} name - The field name (start_date or end_date)
+   * @param {Date} date - The new date value
+   */
   const handleDateChange = (name, date) => {
     setSeasonForm(prev => ({
       ...prev,
@@ -148,6 +165,9 @@ const RecruitingSeasonManagement = () => {
     }));
   };
 
+  /**
+   * Creates a new recruiting season with the current form data
+   */
   const handleCreateSeason = async () => {
     try {
       // Format dates without timezone adjustment (YYYY-MM-DD format)
@@ -162,7 +182,6 @@ const RecruitingSeasonManagement = () => {
         end_date: formattedEndDate
       };
       
-      console.log('Sending season data:', seasonData);
       const response = await seasonsAPI.createSeason(seasonData);
       
       // Update the seasons list
@@ -176,8 +195,6 @@ const RecruitingSeasonManagement = () => {
         severity: 'success'
       });
     } catch (err) {
-      console.error('Error creating recruiting season:', err);
-      
       // Extract detailed error message from response
       const errorDetail = err.response?.data?.detail || 
                           err.response?.data?.message || 
@@ -191,6 +208,10 @@ const RecruitingSeasonManagement = () => {
     }
   };
 
+  /**
+   * Deletes a recruiting season by ID
+   * @param {number} seasonId - The ID of the season to delete
+   */
   const handleDeleteSeason = async (seasonId) => {
     if (!window.confirm('Are you sure you want to delete this recruiting season? This will delete all associated candidate sections, time slots, and registrations. This action cannot be undone.')) {
       return;
@@ -208,7 +229,6 @@ const RecruitingSeasonManagement = () => {
         severity: 'success'
       });
     } catch (err) {
-      console.error('Error deleting recruiting season:', err);
       setSnackbar({
         open: true,
         message: 'Failed to delete recruiting season',
@@ -217,11 +237,18 @@ const RecruitingSeasonManagement = () => {
     }
   };
 
+  /**
+   * Closes the snackbar notification
+   */
   const handleCloseSnackbar = () => {
     setSnackbar(prev => ({ ...prev, open: false }));
   };
 
-  // Helper function to count candidate sections for a season
+  /**
+   * Counts the number of candidate sections associated with a season
+   * @param {number} seasonId - The ID of the season to count sections for
+   * @returns {number} The count of candidate sections for the season
+   */
   const getCandidateSectionCount = (seasonId) => {
     // Now we can rely on the explicit seasonId field we added
     return candidateSections.filter(section => {

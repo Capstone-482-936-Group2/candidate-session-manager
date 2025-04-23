@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { seasonsAPI, candidateSectionsAPI } from '../../api/api';
+import { seasonsAPI, candidateSectionsAPI, timeSlotsAPI } from '../../api/api';
 import SessionCalendar from '../calendar/SessionCalendar';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import SchoolIcon from '@mui/icons-material/School';
@@ -62,11 +62,37 @@ const Dashboard = () => {
 
   // Handle register and unregister (if faculty)
   const handleRegister = async (timeSlotId) => {
-    // If needed, implement registration logic here
+    try {
+      await timeSlotsAPI.registerForTimeSlot(timeSlotId);
+      
+      // Refresh data
+      const seasonsResponse = await seasonsAPI.getSeasons();
+      if (seasonsResponse.data && seasonsResponse.data.length > 0) {
+        const currentSeason = seasonsResponse.data[0];
+        const sectionsResponse = await candidateSectionsAPI.getCandidateSectionsBySeason(currentSeason.id);
+        setCandidateSections(sectionsResponse.data);
+      }
+    } catch (err) {
+      console.error('Error registering for time slot:', err);
+      setError('Failed to register for time slot');
+    }
   };
 
   const handleUnregister = async (timeSlotId) => {
-    // If needed, implement unregistration logic here
+    try {
+      await timeSlotsAPI.unregisterFromTimeSlot(timeSlotId);
+      
+      // Refresh data
+      const seasonsResponse = await seasonsAPI.getSeasons();
+      if (seasonsResponse.data && seasonsResponse.data.length > 0) {
+        const currentSeason = seasonsResponse.data[0];
+        const sectionsResponse = await candidateSectionsAPI.getCandidateSectionsBySeason(currentSeason.id);
+        setCandidateSections(sectionsResponse.data);
+      }
+    } catch (err) {
+      console.error('Error unregistering from time slot:', err);
+      setError('Failed to unregister from time slot');
+    }
   };
 
   if (loading) {
