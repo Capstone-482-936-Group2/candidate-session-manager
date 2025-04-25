@@ -107,6 +107,25 @@ class IsAdminOrFaculty(permissions.BasePermission):
             request.user.is_staff or 
             getattr(request.user, 'user_type', '') in ['admin', 'faculty', 'superadmin']
         )
+class IsAdminOrNoDelete(permissions.BasePermission):
+    """
+    Custom permission to ensure that only admin users can delete objects
+    """
+    def has_permission(self, request, view):
+        # Allow safe methods for authenticated users
+        if request.method in permissions.SAFE_METHODS:
+            return request.user.is_authenticated
+        
+        # For DELETE method, only allow admin or superadmin
+        if request.method == 'DELETE':
+            return request.user.is_authenticated and (
+                request.user.user_type in ['admin', 'superadmin'] or
+                request.user.is_superuser or 
+                request.user.is_staff
+            )
+        
+        # For other methods (POST, PUT, PATCH), all authenticated users are allowed
+        return request.user.is_authenticated
 
 class SessionViewSet(viewsets.ModelViewSet):
     """
@@ -114,7 +133,7 @@ class SessionViewSet(viewsets.ModelViewSet):
     Provides CRUD operations for recruitment sessions.
     """
     serializer_class = SessionSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrNoDelete]
     
     def get_queryset(self):
         """Return all sessions."""
@@ -335,7 +354,7 @@ class LocationTypeViewSet(viewsets.ModelViewSet):
             return super().list(request, *args, **kwargs)
         except Exception as e:
             logger.error(f"Error in LocationTypeViewSet.list: {str(e)}")
-            raise
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def create(self, request, *args, **kwargs):
         """
@@ -346,7 +365,7 @@ class LocationTypeViewSet(viewsets.ModelViewSet):
             return super().create(request, *args, **kwargs)
         except Exception as e:
             logger.error(f"Error in LocationTypeViewSet.create: {str(e)}")
-            raise
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class LocationViewSet(viewsets.ModelViewSet):
     """
@@ -522,7 +541,40 @@ class FacultyAvailabilityViewSet(viewsets.ModelViewSet):
         Handles errors with a detailed response.
         """
         try:
-            return super().create(request, *args, **kwargs)
+            if not isinstance(request.data, dict):
+                return Response(
+                    {"detail": "Invalid data format. Expected a JSON object."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            print(f"Create request data: {request.data}")
+            
+            # Explicit validation for the time_slots field
+            if 'time_slots' not in request.data or not request.data.get('time_slots'):
+                return Response(
+                    {"time_slots": ["This field is required and cannot be empty."]},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+            # Validate that candidate_section exists
+            candidate_section_id = request.data.get('candidate_section')
+            try:
+                CandidateSection.objects.get(pk=candidate_section_id)
+            except (CandidateSection.DoesNotExist, ValueError, TypeError):
+                return Response(
+                    {"candidate_section": ["Invalid candidate section."]},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Get the serializer and validate data
+            serializer = self.get_serializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            # If validation passes, save the instance
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        
         except Exception as e:
             return Response(
                 {"detail": str(e)},

@@ -156,6 +156,19 @@ class SessionTimeSlotCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = SessionTimeSlot
         fields = ['id', 'candidate_section', 'start_time', 'end_time', 'max_attendees', 'location', 'description', 'is_visible']
+    def validate(self, data):
+        """
+        Validate that the end time is after the start time.
+        """
+        start_time = data.get('start_time')
+        end_time = data.get('end_time')
+        
+        if start_time and end_time and end_time <= start_time:
+            raise serializers.ValidationError({
+                'end_time': 'End time must be after start time.'
+            })
+        
+        return data
 
 class LocationTypeSerializer(serializers.ModelSerializer):
     """

@@ -1,0 +1,19 @@
+[run]
+source = .
+omit = 
+    */migrations/*
+    */management/commands/seed_data.py
+    */tests/*
+    */venv/*
+    manage.py
+    */wsgi.py
+    */asgi.py
+    */settings.py
+    
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __str__
+    pass
+    raise NotImplementedError

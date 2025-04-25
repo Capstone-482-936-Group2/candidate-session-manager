@@ -512,17 +512,31 @@ class UserViewSet(viewsets.ModelViewSet):
         Updates the user's room number and marks setup as completed.
         """
         user = request.user
+        
+        # Check if user is a candidate - candidates shouldn't set up rooms
+        if user.user_type == 'candidate':
+            return Response(
+                {'error': 'Candidates cannot set up rooms'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
         room_number = request.data.get('room_number')
         
         if not room_number:
             return Response({'error': 'Room number is required'}, status=status.HTTP_400_BAD_REQUEST)
         
-        user.room_number = room_number
-        user.has_completed_setup = True
-        user.save()
-        
-        serializer = self.get_serializer(user)
-        return Response(serializer.data)
+        try:
+            user.room_number = room_number
+            user.has_completed_setup = True
+            user.save()
+            
+            serializer = self.get_serializer(user)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @action(detail=False, methods=['post'])
     def test_s3(self, request):

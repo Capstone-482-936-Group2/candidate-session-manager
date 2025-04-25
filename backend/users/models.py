@@ -60,7 +60,11 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('is_active', True)
         extra_fields.setdefault('user_type', 'superadmin')
-        
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Superuser must have is_superuser=True.')
+    
+        if not password:
+            raise ValueError('Superuser must have a password.')
         return self.create_user(email, username, password, **extra_fields)
 
 class User(AbstractUser):

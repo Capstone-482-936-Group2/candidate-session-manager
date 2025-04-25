@@ -160,6 +160,7 @@ export const AuthProvider = ({ children }) => {
       storeAuthState(null);
       setShowCandidateSetup(false);
       setShowRoomSetup(false);
+      sessionStorage.clear(); 
     } catch (err) {
       setError(err.response?.data?.error || 'Logout failed');
       throw err;
