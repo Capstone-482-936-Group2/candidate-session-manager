@@ -9,7 +9,7 @@ import CandidateSetupForm from '../components/candidate/CandidateSetupForm';
 import RoomSetupDialog from '../components/auth/RoomSetupDialog';
 
 // Create authentication context
-const AuthContext = createContext();
+export const AuthContext = createContext();
 
 /**
  * Custom hook to access the auth context from any component
