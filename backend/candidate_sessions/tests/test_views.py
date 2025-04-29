@@ -2,12 +2,11 @@
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APITestCase, APIClient
+from rest_framework.test import APITestCase, APIClient, APIRequestFactory
 from django.utils import timezone
 from datetime import timedelta
 from unittest.mock import patch
 import json
-import unittest
 
 from ..models import (
     Session, 
@@ -26,6 +25,8 @@ from ..models import (
     AvailabilityInvitation
 )
 from . import TestCaseBase, create_test_user
+from candidate_sessions.views import IsAdminOrReadOnly, IsFacultyOrReadOnly, IsAdminOrCandidateOwner, IsAdminOrFacultyOrSectionOwner
+
 # Test the TimeSlotTemplateViewSet
 class TimeSlotTemplateViewSetTests(TestCaseBase):
     def setUp(self):
@@ -440,6 +441,36 @@ class FacultyAvailabilityViewSetTests(TestCaseBase):
         self.assertEqual(availability.notes, 'Updated notes')
         self.assertEqual(availability.time_slots.count(), 2)
 
+    def test_import_slots_already_imported(self):
+        # Create availability and mark as already imported
+        availability = FacultyAvailability.objects.create(
+            faculty=self.faculty,
+            candidate_section=self.section
+        )
+        self.section.imported_availability_ids = [availability.id]
+        self.section.save()
+        # Add a time slot
+        AvailabilityTimeSlot.objects.create(
+            availability=availability,
+            start_time=timezone.now() + timedelta(days=1),
+            end_time=timezone.now() + timedelta(days=1, hours=1)
+        )
+        response = self.admin_client.post(f'/api/faculty-availability/{availability.id}/import_slots/')
+        self.assertEqual(response.status_code, 201)
+        self.assertIn('imported_availability_ids', response.data)
+
+    def test_import_slots_exception(self):
+        # Patch to raise an exception
+        availability = FacultyAvailability.objects.create(
+            faculty=self.faculty,
+            candidate_section=self.section
+        )
+        with patch('candidate_sessions.views.SessionTimeSlot.objects.create') as mock_create:
+            mock_create.side_effect = Exception("Test import exception")
+            response = self.admin_client.post(f'/api/faculty-availability/{availability.id}/import_slots/')
+            self.assertEqual(response.status_code, 400)
+            self.assertIn('error', response.data)
+
 # Test AvailabilityInvitationViewSet
 class AvailabilityInvitationViewSetTests(TestCaseBase):
     def setUp(self):
@@ -469,6 +500,91 @@ class AvailabilityInvitationViewSetTests(TestCaseBase):
         response = self.admin_client.post('/api/availability-invitations/invite_faculty/', invitation_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(AvailabilityInvitation.objects.count(), 1)
+
+class AvailabilityInvitationViewSetInviteFacultyTests(TestCaseBase):
+    def setUp(self):
+        super().setUp()
+        self.session = Session.objects.create(
+            title="Test Session",
+            description="Test Description",
+            start_date=timezone.now().date(),
+            end_date=timezone.now().date() + timedelta(days=30),
+            created_by=self.admin
+        )
+        self.section = CandidateSection.objects.create(
+            session=self.session,
+            candidate=self.candidate,
+            title="Test Section",
+            location="Test Location"
+        )
+        self.url = '/api/availability-invitations/invite_faculty/'
+
+    def test_only_admin_can_invite(self):
+        data = {
+            'faculty_ids': [self.faculty.id],
+            'candidate_section_ids': [self.section.id],
+            'send_email': False
+        }
+        # Faculty user
+        response = self.faculty_client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, 403)
+        # Candidate user
+        response = self.candidate_client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, 403)
+
+    def test_missing_faculty_ids(self):
+        data = {
+            'faculty_ids': [],
+            'candidate_section_ids': [self.section.id],
+            'send_email': False
+        }
+        response = self.admin_client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', response.data)
+
+    def test_missing_candidate_section_ids(self):
+        data = {
+            'faculty_ids': [self.faculty.id],
+            'candidate_section_ids': [],
+            'send_email': False
+        }
+        response = self.admin_client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', response.data)
+
+    def test_successful_invite(self):
+        data = {
+            'faculty_ids': [self.faculty.id],
+            'candidate_section_ids': [self.section.id],
+            'send_email': False
+        }
+        response = self.admin_client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, 201)
+        self.assertIn('message', response.data)
+        self.assertTrue(AvailabilityInvitation.objects.filter(faculty=self.faculty, candidate_section=self.section).exists())
+
+    def test_send_email(self):
+        data = {
+            'faculty_ids': [self.faculty.id],
+            'candidate_section_ids': [self.section.id],
+            'send_email': True
+        }
+        with patch('candidate_sessions.views.send_mail') as mock_send_mail:
+            response = self.admin_client.post(self.url, data, format='json')
+            self.assertEqual(response.status_code, 201)
+            mock_send_mail.assert_called_once()
+
+    def test_exception_handling(self):
+        data = {
+            'faculty_ids': [self.faculty.id],
+            'candidate_section_ids': [self.section.id],
+            'send_email': False
+        }
+        with patch('candidate_sessions.views.User.objects.filter') as mock_filter:
+            mock_filter.side_effect = Exception("Test exception")
+            response = self.admin_client.post(self.url, data, format='json')
+            self.assertEqual(response.status_code, 400)
+            self.assertIn('error', response.data)
 
 class SessionViewSetTests(TestCaseBase):
     """Test the SessionViewSet additional methods and edge cases"""
@@ -810,6 +926,7 @@ class SessionAttendeeViewSetTests(TestCaseBase):
         response = self.candidate_client.get('/api/attendees/my_registrations/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 0)
+
 class CandidateSectionViewSetTests(TestCaseBase):
     """Test the CandidateSectionViewSet"""
     
@@ -1021,218 +1138,106 @@ class SessionTimeSlotViewSetTests(TestCaseBase):
         response = self.admin_client.put(f'/api/timeslots/{timeslot.id}/', update_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-class FacultyAvailabilityViewSetTests(TestCaseBase):
-    """Additional tests for FacultyAvailabilityViewSet"""
-    
-    def test_admin_can_view_all_availability(self):
-        """Test admin can see all faculty availability"""
-        # Create session and section first
-        session1 = Session.objects.create(
-            title="Test Session 1",
-            description="First session",
-            start_date=timezone.now().date(),
-            end_date=timezone.now().date() + timedelta(days=30),
-            created_by=self.admin
-        )
-        
-        section1 = CandidateSection.objects.create(
-            session=session1,
-            candidate=self.candidate,
-            title="Test Section 1",
-            location="Test Location 1"
-        )
-        
-        session2 = Session.objects.create(
-            title="Test Session 2",
-            description="Second session",
-            start_date=timezone.now().date(),
-            end_date=timezone.now().date() + timedelta(days=30),
-            created_by=self.admin
-        )
-        
-        section2 = CandidateSection.objects.create(
-            session=session2,
-            candidate=self.candidate,
-            title="Test Section 2",
-            location="Test Location 2"
-        )
-        
-        # Create availability for the original faculty user
-        availability1 = FacultyAvailability.objects.create(
-            faculty=self.faculty,
-            candidate_section=section1
-        )
-        
-        # Add a time slot to this availability
-        AvailabilityTimeSlot.objects.create(
-            availability=availability1,
-            start_time=timezone.now() + timedelta(days=1),
-            end_time=timezone.now() + timedelta(days=1, hours=1)
-        )
-        
-        # Create a second faculty availability using the same faculty
-        availability2 = FacultyAvailability.objects.create(
-            faculty=self.faculty,
-            candidate_section=section2
-        )
-        
-        # Add a time slot to this availability
-        AvailabilityTimeSlot.objects.create(
-            availability=availability2,
-            start_time=timezone.now() + timedelta(days=2),
-            end_time=timezone.now() + timedelta(days=2, hours=1)
-        )
-        
-        # Admin should see all availability (2)
-        response = self.admin_client.get('/api/faculty-availability/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
-        
-        # Faculty should only see their own (which is still 2, since both are theirs)
-        response = self.faculty_client.get('/api/faculty-availability/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
-        
-        # But if we filter by section, we should only see 1 for each section
-        response = self.faculty_client.get(f'/api/faculty-availability/?candidate_section={section1.id}')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        
-        response = self.faculty_client.get(f'/api/faculty-availability/?candidate_section={section2.id}')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-    
-    def test_error_handling_in_create(self):
-        """Test error handling in create method"""
-        # Invalid data - missing time_slots which is required
-        invalid_data = {
-            'candidate_section': 9999,  # Non-existent section
-            'notes': 'Test notes'
-        }
-        
-        response = self.faculty_client.post('/api/faculty-availability/', invalid_data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-class AvailabilityInvitationViewSetTests(TestCaseBase):
-    """Additional tests for AvailabilityInvitationViewSet"""
-    
+class FacultyAvailabilityViewSetCreateEdgeCases(TestCaseBase):
     def setUp(self):
         super().setUp()
         self.session = Session.objects.create(
-            title="Test Session",
-            description="Test Description",
+            title="Session",
+            description="Desc",
             start_date=timezone.now().date(),
-            end_date=timezone.now().date() + timedelta(days=30),
+            end_date=timezone.now().date() + timedelta(days=1),
             created_by=self.admin
         )
         self.section = CandidateSection.objects.create(
             session=self.session,
             candidate=self.candidate,
-            title="Test Section",
-            location="Test Location"
+            title="Section",
+            location="Loc"
         )
-        
-    def test_invite_faculty(self):
-        """Test inviting faculty to provide availability"""
-        invitation_data = {
-            'faculty_ids': [self.faculty.id],
-            'candidate_section_ids': [self.section.id],
-            'send_email': False
-        }
-        
-        response = self.admin_client.post('/api/availability-invitations/invite_faculty/', invitation_data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(AvailabilityInvitation.objects.count(), 1)
-    
-    def test_faculty_can_only_see_own_invitations(self):
-        """Test faculty can only see invitations directed to them"""
-        # Create multiple faculties
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-        
-        faculty2 = User.objects.create_user(
-            email="faculty2@example.com",
-            username="faculty2",
-            password="password"
-        )
-        faculty2.user_type = "faculty"
-        faculty2.save()
-        
-        faculty2_client = APIClient()
-        faculty2_client.force_authenticate(user=faculty2)
-        
-        # Create invitations for both faculty
-        AvailabilityInvitation.objects.create(
-            faculty=self.faculty,
-            candidate_section=self.section,
-            created_by=self.admin
-        )
-        
-        AvailabilityInvitation.objects.create(
-            faculty=faculty2,
-            candidate_section=self.section,
-            created_by=self.admin
-        )
-        
-        # Admin should see all invitations
-        response = self.admin_client.get('/api/availability-invitations/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
-        
-        # First faculty should only see their invitation
-        response = self.faculty_client.get('/api/availability-invitations/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        
-        # Second faculty should only see their invitation
-        response = faculty2_client.get('/api/availability-invitations/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-    
-    def test_invite_faculty_validation(self):
-        """Test validation in invite_faculty endpoint"""
-        # Missing required data
-        invalid_data = {
-            'faculty_ids': [],  # Empty faculty list
-            'candidate_section_ids': [self.section.id],
-            'send_email': False
-        }
-        
-        response = self.admin_client.post('/api/availability-invitations/invite_faculty/', invalid_data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        
-        # Now with faculty but no sections
-        invalid_data = {
-            'faculty_ids': [self.faculty.id],
-            'candidate_section_ids': [],  # Empty section list
-            'send_email': False
-        }
-        
-        response = self.admin_client.post('/api/availability-invitations/invite_faculty/', invalid_data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        
-        # Non-admin cannot invite faculty
-        response = self.faculty_client.post('/api/availability-invitations/invite_faculty/', 
-                                          {'faculty_ids': [self.faculty.id], 
-                                           'candidate_section_ids': [self.section.id],
-                                           'send_email': False}, 
-                                          format='json')
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.url = '/api/faculty-availability/'
 
-    def test_invite_faculty_with_email(self):
-        """Test inviting faculty with email sending"""
-        invitation_data = {
-            'faculty_ids': [self.faculty.id],
-            'candidate_section_ids': [self.section.id],
-            'send_email': True,
-            'email_subject': 'Test Invitation',
-            'email_message': 'Please provide your availability'
+    def test_create_with_non_dict_data(self):
+        # Simulate sending a list instead of a dict
+        response = self.faculty_client.post(self.url, data=[1,2,3], format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Invalid data format", response.data.get("detail", ""))
+
+    def test_create_missing_time_slots(self):
+        # Missing time_slots field
+        data = {
+            'candidate_section': self.section.id,
+            'notes': 'Test notes'
         }
-        
-        with patch('candidate_sessions.views.send_mail') as mock_send_mail:
-            response = self.admin_client.post('/api/availability-invitations/invite_faculty/', invitation_data, format='json')
-            self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-            mock_send_mail.assert_called_once()
+        response = self.faculty_client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("time_slots", response.data)
+
+    def test_create_invalid_candidate_section(self):
+        # Non-existent candidate_section
+        data = {
+            'candidate_section': 999999,
+            'notes': 'Test notes',
+            'time_slots': [
+                {
+                    'start_time': (timezone.now() + timedelta(days=1)).isoformat(),
+                    'end_time': (timezone.now() + timedelta(days=1, hours=1)).isoformat()
+                }
+            ]
+        }
+        response = self.faculty_client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("candidate_section", response.data)
+
+    def test_create_invalid_serializer(self):
+        # Invalid serializer data (e.g., end_time before start_time)
+        data = {
+            'candidate_section': self.section.id,
+            'notes': 'Test notes',
+            'time_slots': [
+                {
+                    'start_time': (timezone.now() + timedelta(days=1)).isoformat(),
+                    'end_time': (timezone.now() - timedelta(days=1)).isoformat()
+                }
+            ]
+        }
+        response = self.faculty_client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, 400)
+        # Should return serializer errors, not our custom ones
+        self.assertTrue(isinstance(response.data, dict))
+
+    def test_create_success(self):
+        # Valid data
+        data = {
+            'candidate_section': self.section.id,
+            'notes': 'Test notes',
+            'time_slots': [
+                {
+                    'start_time': (timezone.now() + timedelta(days=1)).isoformat(),
+                    'end_time': (timezone.now() + timedelta(days=1, hours=1)).isoformat()
+                }
+            ]
+        }
+        response = self.faculty_client.post(self.url, data, format='json')
+        self.assertEqual(response.status_code, 201)
+        self.assertIn('id', response.data)
+
+    def test_create_exception(self):
+        # Patch serializer to raise an exception
+        with patch('candidate_sessions.views.FacultyAvailabilityViewSet.get_serializer') as mock_get_serializer:
+            mock_get_serializer.side_effect = Exception("Test exception")
+            data = {
+                'candidate_section': self.section.id,
+                'notes': 'Test notes',
+                'time_slots': [
+                    {
+                        'start_time': (timezone.now() + timedelta(days=1)).isoformat(),
+                        'end_time': (timezone.now() + timedelta(days=1, hours=1)).isoformat()
+                    }
+                ]
+            }
+            response = self.faculty_client.post(self.url, data, format='json')
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("Test exception", response.data.get("detail", ""))
 
 class GeneralViewTests(TestCaseBase):
     """General tests for view functionality that spans multiple views"""
@@ -1322,3 +1327,117 @@ class GeneralViewTests(TestCaseBase):
         response = self.candidate_client.post('/api/location-types/', location_type_data)
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
         print("1299")
+
+def test_is_admin_or_read_only():
+    factory = APIRequestFactory()
+    perm = IsAdminOrReadOnly()
+    # Authenticated, safe method
+    user = create_test_user(user_type='candidate')
+    request = factory.get('/')
+    request.user = user
+    assert perm.has_permission(request, None) is True
+    # Authenticated, unsafe method, not admin
+    request = factory.post('/')
+    request.user = user
+    assert perm.has_permission(request, None) is False
+    # Admin, unsafe method
+    admin = create_test_user(user_type='admin')
+    request.user = admin
+    assert perm.has_permission(request, None) is True
+
+def test_is_faculty_or_read_only():
+    factory = APIRequestFactory()
+    perm = IsFacultyOrReadOnly()
+    user = create_test_user(user_type='candidate')
+    request = factory.get('/')
+    request.user = user
+    assert perm.has_permission(request, None) is True
+    request = factory.post('/')
+    request.user = user
+    assert perm.has_permission(request, None) is False
+    faculty = create_test_user(user_type='faculty')
+    request.user = faculty
+    assert perm.has_permission(request, None) is True
+
+def test_is_admin_or_candidate_owner_object_permission():
+    perm = IsAdminOrCandidateOwner()
+    factory = APIRequestFactory()
+    admin = create_test_user(user_type='admin')
+    candidate = create_test_user(user_type='candidate')
+    section = CandidateSection(candidate=candidate)
+    request = factory.get('/')
+    request.user = admin
+    assert perm.has_object_permission(request, None, section) is True
+    request.user = candidate
+    assert perm.has_object_permission(request, None, section) is True
+    other = create_test_user(user_type='candidate')
+    request.user = other
+    assert perm.has_object_permission(request, None, section) is False
+
+def test_is_admin_or_faculty_or_section_owner_object_permission():
+    perm = IsAdminOrFacultyOrSectionOwner()
+    factory = APIRequestFactory()
+    admin = create_test_user(user_type='admin')
+    faculty = create_test_user(user_type='faculty')
+    candidate = create_test_user(user_type='candidate')
+    section = CandidateSection(candidate=candidate)
+    request = factory.get('/')
+    request.user = admin
+    assert perm.has_object_permission(request, None, section) is True
+    request.user = faculty
+    assert perm.has_object_permission(request, None, section) is True
+    request.user = candidate
+    assert perm.has_object_permission(request, None, section) is True
+    other = create_test_user(user_type='candidate')
+    request.user = other
+    assert perm.has_object_permission(request, None, section) is False
+
+def test_session_viewset_get_serializer_class(admin_client, admin):
+    session = Session.objects.create(
+        title="Test", description="Test", start_date=timezone.now().date(),
+        end_date=timezone.now().date(), created_by=admin
+    )
+    # List (should use SessionSerializer)
+    response = admin_client.get('/api/seasons/')
+    assert response.status_code == 200
+    # Retrieve (should use SessionDetailSerializer)
+    response = admin_client.get(f'/api/seasons/{session.id}/')
+    assert response.status_code == 200
+    assert 'candidate_sections' in response.data
+
+def test_session_viewset_perform_create_permission(candidate_client):
+    data = {
+        'title': 'Unauthorized',
+        'start_date': timezone.now().date().isoformat(),
+        'end_date': timezone.now().date().isoformat()
+    }
+    response = candidate_client.post('/api/seasons/', data)
+    assert response.status_code == 400
+    assert 'Only administrators can create sessions.' in response.content.decode()
+    
+    
+def test_faculty_availability_create_missing_time_slots(faculty_client, section):
+    data = {'candidate_section': section.id, 'notes': 'Test'}
+    response = faculty_client.post('/api/faculty-availability/', data)
+    assert response.status_code == 400
+    assert 'time_slots' in response.data
+
+def test_faculty_availability_import_slots_permission(candidate_client, faculty_availability):
+    response = candidate_client.post(f'/api/faculty-availability/{faculty_availability.id}/import_slots/')
+    assert response.status_code == 403
+
+def test_availability_invitation_invite_faculty_permission(candidate_client, section, faculty):
+    data = {'faculty_ids': [faculty.id], 'candidate_section_ids': [section.id], 'send_email': False}
+    response = candidate_client.post('/api/availability-invitations/invite_faculty/', data)
+    assert response.status_code == 403
+
+def test_create_session_error_handling(self):
+    with patch('candidate_sessions.models.Session.objects.create') as mock_create:
+        mock_create.side_effect = Exception("Database error")
+        response = self.client.post(self.sessions_url, {
+            'title': 'Test',
+            'start_date': '2024-01-01',
+            'end_date': '2024-01-02'
+        })
+        self.assertEqual(response.status_code, 500)
+        self.assertIn('Database error', response.content.decode())

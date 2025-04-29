@@ -8,6 +8,8 @@ from datetime import timedelta, datetime
 from unittest.mock import patch, MagicMock, mock_open, ANY
 from django.core.files.uploadedfile import SimpleUploadedFile
 import json
+import unittest
+
 class UserViewSetTests(APITestCase):
     def setUp(self):
         # Create a superuser
@@ -195,6 +197,16 @@ class UserViewSetTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
+    def test_update_role_missing_user_type_field(self):
+        """Covers the missing user_type check in update_role action (lines 124-136)"""
+        self.client.force_authenticate(user=self.superuser)
+        url = self.update_role_url(self.faculty.id)
+        # Do NOT provide user_type in the payload
+        response = self.client.patch(url, {}, format='json')
+        assert response.status_code == 400
+        assert 'error' in response.data
+        assert response.data['error'] == 'user_type is required'
+
     def test_destroy_user(self):
         """Test user deletion with various scenarios"""
         # Create a test user to delete
@@ -234,7 +246,7 @@ class UserViewSetTests(APITestCase):
 
     @patch('users.views.send_mail')
     def test_send_form_link(self, mock_send_mail):
-        """Test sending form link emails"""
+        """Test sending form link emails (covers lines 470-503)"""
         from candidate_sessions.models import Form
         
         # Create a test form
@@ -252,28 +264,32 @@ class UserViewSetTests(APITestCase):
         
         send_form_url = reverse('user-send-form-link')
         
-        # Test with non-admin
+        # 1. Test with non-admin (should fail)
         self.client.force_authenticate(user=self.faculty)
         response = self.client.post(send_form_url, form_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertIn('error', response.data)
         
-        # Test with admin
+        # 2. Test with admin (should succeed)
         self.client.force_authenticate(user=self.admin)
         mock_send_mail.return_value = 1  # Mock successful email sending
         
         response = self.client.post(send_form_url, form_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('message', response.data)
         mock_send_mail.assert_called_once()
         
-        # Test with missing data
+        # 3. Test with missing data (should fail)
         response = self.client.post(send_form_url, {'candidate_email': 'test@example.com'}, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('error', response.data)
         
-        # Test with email failure
+        # 4. Test with email failure (should return 500)
         mock_send_mail.reset_mock()
         mock_send_mail.side_effect = Exception("Email error")
         response = self.client.post(send_form_url, form_data, format='json')
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        self.assertIn('error', response.data)
 
     def test_complete_candidate_setup(self):
         """Test candidate profile setup completion"""
@@ -1567,7 +1583,6 @@ class UserViewSetTests(APITestCase):
         mock_boto_client.reset_mock()
         mock_storage.reset_mock()
         mock_logger.reset_mock()
-        mock_storage.save.side_effect = None
         mock_storage.url.side_effect = Exception("URL generation error")
         
         response = self.client.post(test_s3_url)
@@ -1595,3 +1610,68 @@ class UserViewSetTests(APITestCase):
         response = self.client.post(test_s3_url)
         self.assertEqual(response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
         self.assertIn('error', response.data)
+        
+from unittest.mock import patch, MagicMock
+from rest_framework.test import APIRequestFactory
+from django.urls import reverse
+
+@patch('users.views.send_mail')
+@patch('users.views.get_object_or_404')
+def test_send_form_link_function(mock_get_object, mock_send_mail):
+    """Standalone test for the function-based send_form_link view (lines 970-1003)"""
+    from users.views import send_form_link
+
+    # Set up a mock form object
+    mock_form = MagicMock()
+    mock_form.title = "Test Form"
+    mock_form.id = 999
+    mock_get_object.return_value = mock_form
+
+    factory = APIRequestFactory()
+
+    # 1. Non-admin user should get 403
+    user = User.objects.create_user(username="faculty2", email="faculty2@example.com", password="password", user_type="faculty")
+    request = factory.post('/fake-url/', {
+        'candidate_email': 'test@example.com',
+        'form_id': 999,
+        'message': 'Test message'
+    }, format='json')
+    request.user = user
+    response = send_form_link(request)
+    assert response.status_code == 403
+    assert 'error' in response.data
+
+    # 2. Admin user, success
+    admin = User.objects.get(username="admin")
+    request = factory.post('/fake-url/', {
+        'candidate_email': 'test@example.com',
+        'form_id': 999,
+        'message': 'Test message'
+    }, format='json')
+    request.user = admin
+    mock_send_mail.return_value = 1
+    response = send_form_link(request)
+    assert response.status_code == 200
+    assert response.data['message'] == 'Form link sent successfully'
+    mock_send_mail.assert_called_once()
+
+    # 3. Missing data (no form_id)
+    request = factory.post('/fake-url/', {
+        'candidate_email': 'test@example.com'
+    }, format='json')
+    request.user = admin
+    response = send_form_link(request)
+    assert response.status_code == 400
+    assert 'error' in response.data
+
+    # 4. Email sending error
+    request = factory.post('/fake-url/', {
+        'candidate_email': 'test@example.com',
+        'form_id': 999,
+    }, format='json')
+    request.user = admin
+    mock_send_mail.reset_mock()
+    mock_send_mail.side_effect = Exception("Email error")
+    response = send_form_link(request)
+    assert response.status_code == 500
+    assert 'error' in response.data

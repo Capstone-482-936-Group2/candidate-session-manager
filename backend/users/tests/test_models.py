@@ -1,9 +1,12 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from users.models import User, CandidateProfile
 from django.utils import timezone
 from datetime import timedelta
 import os
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.contrib.auth import get_user_model
+from unittest.mock import patch
+from django.core.files.storage import default_storage
 
 class UserModelTests(TestCase):
     def setUp(self):
@@ -256,3 +259,45 @@ class CandidateProfileTests(TestCase):
                 email="no_pass_super@example.com",
                 password=""
             )
+
+@override_settings(MEDIA_ROOT='/tmp/django_test_media/')
+class CandidateProfileHeadshotTest(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            email='test@example.com',
+            username='testuser',
+            password='testpass'
+        )
+        self.headshot1 = SimpleUploadedFile("headshot1.jpg", b"file_content_1", content_type="image/jpeg")
+        self.headshot2 = SimpleUploadedFile("headshot2.jpg", b"file_content_2", content_type="image/jpeg")
+
+    def test_old_headshot_deleted_on_update(self):
+        # Create profile with first headshot
+        profile = CandidateProfile.objects.create(
+            user=self.user,
+            current_title="Title",
+            current_department="Dept",
+            current_institution="Inst",
+            research_interests="Research",
+            cell_number="1234567890",
+            travel_assistance="all",
+            passport_name="Name",
+            date_of_birth="2000-01-01",
+            country_of_residence="Country",
+            gender="male",
+            talk_title="Talk",
+            abstract="Abstract",
+            biography="Bio",
+            headshot=SimpleUploadedFile("headshot1.jpg", b"file_content_1", content_type="image/jpeg"),
+        )
+        # Fetch a fresh instance from the DB to simulate a real update
+        profile = CandidateProfile.objects.get(pk=profile.pk)
+        old_headshot_name = profile.headshot.name
+
+        # Patch the storage's delete method
+        with patch.object(default_storage, 'delete', wraps=default_storage.delete) as mock_storage_delete:
+            # Update the profile with a new headshot (different filename)
+            profile.headshot = SimpleUploadedFile("headshot2.jpg", b"file_content_2", content_type="image/jpeg")
+            profile.save()
+            # The old headshot's file should be deleted from storage
+            mock_storage_delete.assert_any_call(old_headshot_name)

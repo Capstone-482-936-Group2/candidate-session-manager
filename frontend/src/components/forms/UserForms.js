@@ -395,15 +395,20 @@ const UserForms = () => {
 
       // Check if time is within candidate's visiting dates
       if (isValid && selectedCandidate.arrival_date && selectedCandidate.leaving_date) {
-        const arrivalDate = new Date(selectedCandidate.arrival_date);
+        const arrivalDate = new Date(selectedCandidate.arrival_date + 1);
         arrivalDate.setHours(0, 0, 0, 0); // Start of arrival day
         
-        const leavingDate = new Date(selectedCandidate.leaving_date);
+        const leavingDate = new Date(selectedCandidate.leaving_date + 1);
         leavingDate.setHours(23, 59, 59, 999); // End of leaving day
         
         if (isBefore(slot.start_time, arrivalDate) || isAfter(slot.start_time, leavingDate)) {
           isValid = false;
-          errorMessage = `Time slot ${index + 1} is outside the candidate's visit dates (${format(arrivalDate, 'MMM d, yyyy')} - ${format(leavingDate, 'MMM d, yyyy')})`;
+          errorMessage = `Time slot ${index + 1} start time is outside the candidate's visit dates (${format(arrivalDate, 'MMM d, yyyy')} - ${format(leavingDate, 'MMM d, yyyy')})`;
+        }
+        
+        if (isValid && isAfter(slot.end_time, leavingDate)) {
+          isValid = false;
+          errorMessage = `Time slot ${index + 1} end time cannot be after the candidate's departure date (${format(leavingDate, 'MMM d, yyyy')})`;
         }
       }
     });
@@ -752,11 +757,6 @@ const UserForms = () => {
                                 primary={
                                   <Typography variant="body1" fontWeight={500}>
                                     {submission.time_slots.length} time slot(s) submitted
-                                  </Typography>
-                                }
-                                secondary={
-                                  <Typography variant="body2" color="text.secondary">
-                                    {new Date(submission.created_at).toLocaleString()}
                                   </Typography>
                                 }
                                 onClick={() => setShowSubmissionDetails(submission.id === showSubmissionDetails ? null : submission.id)}

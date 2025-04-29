@@ -253,42 +253,67 @@ class UserViewSet(viewsets.ModelViewSet):
     def update_role(self, request, pk=None):
         """
         Update a user's role.
-        Changes a user's type (e.g., from candidate to faculty).
-        Only available to superadmins with restrictions on changing other superadmins.
+        Only superadmins can update any role.
+        Admins can only update non-admin users.
         """
         user = self.get_object()
+        current_user = request.user
         
-        # Only superadmins can change roles
-        if not request.user.is_superadmin:
-            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+        # Get the new user_type from request
+        new_user_type = request.data.get('user_type')
         
-        new_role = request.data.get('user_type')
-        if new_role not in [choice[0] for choice in User.USER_TYPE_CHOICES]:
-            return Response({'error': 'Invalid user type'}, status=status.HTTP_400_BAD_REQUEST)
+        # Validate that a user_type was provided
+        if not new_user_type:
+            return Response(
+                {'error': 'user_type is required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
-        # If trying to change a superadmin's role (including self)
-        if user.is_superadmin:
-            # Count number of superadmins
-            superadmin_count = User.objects.filter(user_type='superadmin').count()
-            
-            # If this is the last superadmin and trying to change to non-superadmin role
-            if superadmin_count == 1 and new_role != 'superadmin':
+        # Check if current user is superadmin
+        if current_user.is_superadmin:
+            # Superadmin cannot change other superadmin roles
+            if user.user_type == 'superadmin' and user.id != current_user.id:
                 return Response(
-                    {'error': 'Cannot change role: This is the last superadmin user'}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            # If trying to change another superadmin's role
-            if user != request.user:
-                return Response(
-                    {'error': 'Cannot change another superadmin\'s role'}, 
+                    {'error': 'Cannot change another superadmin\'s role'},
                     status=status.HTTP_403_FORBIDDEN
                 )
+            
+            # Superadmin can't change their role if they're the last superadmin
+            if user.user_type == 'superadmin' and user.id == current_user.id and new_user_type != 'superadmin':
+                # Check if there are other superadmins
+                other_superadmins = User.objects.filter(user_type='superadmin').exclude(id=user.id).count()
+                if other_superadmins == 0:
+                    return Response(
+                        {'error': 'Cannot change the last superadmin role'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+        elif current_user.is_admin:
+            # Admin can only change non-admin roles
+            if user.user_type in ['admin', 'superadmin']:
+                return Response(
+                    {'error': 'Admins cannot change admin or superadmin roles'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Admins cannot set user type to admin or superadmin
+            if new_user_type in ['admin', 'superadmin']:
+                return Response(
+                    {'error': 'Admins cannot set user type to admin or superadmin'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        else:
+            # Non-admin users cannot change roles
+            return Response(
+                {'error': 'Permission denied'},
+                status=status.HTTP_403_FORBIDDEN
+            )
         
-        user.user_type = new_role
+        # Update the user role
+        user.user_type = new_user_type
         user.save()
         
-        serializer = UserSerializer(user)
+        # Return updated user data
+        serializer = self.get_serializer(user)
         return Response(serializer.data)
 
     def list(self, request, *args, **kwargs):
@@ -766,6 +791,35 @@ class UserViewSet(viewsets.ModelViewSet):
         refreshed_user = User.objects.get(id=user_id)
         
         return Response({"before": value, "after": refreshed_user.available_for_meetings})
+
+    @action(detail=True, methods=['patch'])
+    def set_availability(self, request, pk=None):
+        """
+        Allow faculty to update their availability status.
+        Only the user themselves or an admin can update availability.
+        """
+        user = self.get_object()
+        
+        # Check if user is faculty
+        if user.user_type != 'faculty' and not request.user.is_admin:
+            return Response(
+                {'error': 'Only faculty users can set availability'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Check if the user is updating their own availability or is an admin
+        if str(user.id) != str(pk) and not request.user.is_admin:
+            return Response(
+                {'error': 'You can only update your own availability'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Update availability
+        user.available_for_meetings = request.data.get('available_for_meetings', user.available_for_meetings)
+        user.save()
+        
+        serializer = self.get_serializer(user)
+        return Response(serializer.data)
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

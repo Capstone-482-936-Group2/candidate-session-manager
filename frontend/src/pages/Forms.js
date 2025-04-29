@@ -62,7 +62,8 @@ const Forms = () => {
       <Grid container spacing={3}>
         {forms.map((form) => (
           // ... existing form card code ...
-        ))}
+          console.log('')
+        ))};
       </Grid>
 
       {/* Existing create/edit form dialog */}

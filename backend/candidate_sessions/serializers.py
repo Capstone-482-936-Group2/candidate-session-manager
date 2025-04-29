@@ -156,9 +156,11 @@ class SessionTimeSlotCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = SessionTimeSlot
         fields = ['id', 'candidate_section', 'start_time', 'end_time', 'max_attendees', 'location', 'description', 'is_visible']
+    
     def validate(self, data):
         """
         Validate that the end time is after the start time.
+        Also validate that the time slot is within the session dates.
         """
         start_time = data.get('start_time')
         end_time = data.get('end_time')
@@ -167,6 +169,31 @@ class SessionTimeSlotCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 'end_time': 'End time must be after start time.'
             })
+        
+        # Get the candidate section's session dates
+        candidate_section = data.get('candidate_section')
+        if candidate_section and start_time and end_time:
+            session = candidate_section.session
+            
+            # Make sure we're comparing timezone-aware or timezone-naive consistently
+            if start_time.tzinfo is not None:
+                # If start_time has timezone info, make session dates timezone-aware
+                session_start = datetime.combine(session.start_date, datetime.min.time()).replace(tzinfo=start_time.tzinfo)
+                session_end = datetime.combine(session.end_date, datetime.max.time()).replace(tzinfo=start_time.tzinfo)
+            else:
+                # If start_time has no timezone, use naive datetimes for comparison
+                session_start = datetime.combine(session.start_date, datetime.min.time())
+                session_end = datetime.combine(session.end_date, datetime.max.time())
+            
+            if start_time < session_start:
+                raise serializers.ValidationError({
+                    'start_time': 'Start time must be after the session start date.'
+                })
+                
+            if end_time > session_end:
+                raise serializers.ValidationError({
+                    'end_time': 'End time must be before the session end date.'
+                })
         
         return data
 
