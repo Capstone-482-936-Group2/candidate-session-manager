@@ -1446,7 +1446,11 @@ const CandidateSetupForm = () => {
       fullWidth
       scroll="paper"
       disableEscapeKeyDown={true}
-      disableBackdropClick={true}
+      onClose={(event, reason) => {
+        if (reason !== 'backdropClick') {
+          handleClose(event);
+        }
+      }}
     >
       <DialogTitle>
         Candidate Setup
@@ -1534,3 +1538,10 @@ const CandidateSetupForm = () => {
 };
 
 export default CandidateSetupForm;
+export { 
+  PersonalInformationStep, 
+  TravelAssistanceStep, 
+  TalkInformationStep, 
+  PreferencesStep, 
+  ReviewStep 
+};
