@@ -70,7 +70,14 @@ export const AuthProvider = ({ children }) => {
    * @param {Object} user - User object to check
    */
   const checkUserSetupNeeds = (user) => {
-    if (!user || user.has_completed_setup) return;
+    if (!user) return;
+    
+    // If user has completed setup, make sure setup forms are closed
+    if (user.has_completed_setup) {
+      setShowCandidateSetup(false);
+      setShowRoomSetup(false);
+      return;
+    }
     
     if (user.user_type === 'candidate') {
       setShowCandidateSetup(true);

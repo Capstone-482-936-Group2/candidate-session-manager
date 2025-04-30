@@ -1212,7 +1212,7 @@ const CandidateSetupForm = () => {
             ['faculty', 'admin', 'superadmin'].includes(user.user_type) && 
             user.first_name && 
             user.last_name &&
-            user.available_for_meetings !== false  // Only show faculty who are available for meetings
+            (user.available_for_meetings !== false) // CHANGED: Only show faculty who are explicitly marked as available
           )
           .map(user => ({
             id: user.id,

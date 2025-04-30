@@ -1,35 +1,42 @@
 // src/pages/FormManagement.test.js
 import React from 'react';
-
-// Global mock BEFORE importing component
-jest.mock('../api/api', () => ({
-  __esModule: true,
-  default: {
-    get: jest.fn((url) => {
-      if (url === '/forms/') {
-        return Promise.resolve({ data: [{
-          id: 1,
-          title: 'Test Form 1',
-          description: 'A test form',
-          is_active: true,
-          form_fields: [],
-        }] });
-      }
-      return Promise.resolve({ data: [] });
-    }),
-  },
-  usersAPI: {
-    getUsers: jest.fn(() => Promise.resolve({ data: [] })),
-  },
-  seasonsAPI: {
-    getSeasons: jest.fn(() => Promise.resolve({ data: [] })),
-  },
-}));
-
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { act } from 'react-dom/test-utils';
 import FormManagement from './FormManagement';
 import { AuthContext } from '../context/AuthContext';
+
+// Mock the entire api module
+jest.mock('../api/api', () => {
+  const mockApi = {
+    get: jest.fn(),
+    delete: jest.fn(),
+    put: jest.fn(),
+    post: jest.fn(),
+  };
+
+  return {
+    __esModule: true,
+    default: mockApi,
+    usersAPI: {
+      getUsers: jest.fn(),
+      sendFormLink: jest.fn(),
+      getUser: jest.fn(),
+    },
+    seasonsAPI: {
+      getSeasons: jest.fn(),
+    },
+    candidateSectionsAPI: {
+      getCandidateSectionsBySeason: jest.fn(),
+    },
+    availabilityInvitationAPI: {
+      inviteFaculty: jest.fn(),
+    },
+  };
+});
+
+// Import the mocked module to use in tests
+import api, { usersAPI } from '../api/api';
 
 // Helper to render with AuthContext
 const renderWithAuth = (ui, { currentUser = {}, isAdmin = true } = {}) => {
@@ -41,27 +48,144 @@ const renderWithAuth = (ui, { currentUser = {}, isAdmin = true } = {}) => {
 };
 
 describe('FormManagement', () => {
+  const mockForm = {
+    id: 1,
+    title: 'Test Form 1',
+    description: 'A test form',
+    is_active: true,
+    form_fields: [],
+  };
+
+  const mockUser = {
+    id: 2,
+    email: 'user@example.com',
+    full_name: 'Test User',
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
+    
+    // Set up default mock responses
+    api.get.mockImplementation((url) => {
+      switch (url) {
+        case '/forms/':
+          return Promise.resolve({ data: [mockForm] });
+        case '/users/':
+          return Promise.resolve({ data: [mockUser] });
+        default:
+          return Promise.resolve({ data: [] });
+      }
+    });
+
+    usersAPI.getUsers.mockResolvedValue({ data: [mockUser] });
   });
 
   test('renders No Forms Available when no forms exist', async () => {
-    renderWithAuth(<FormManagement />);
+    // Override the default mock for this test
+    api.get.mockImplementation((url) => {
+      if (url === '/forms/') return Promise.resolve({ data: [] });
+      return Promise.resolve({ data: [] });
+    });
 
-    const noFormsText = await screen.findByText(/No Forms Available/i);
-    expect(noFormsText).toBeInTheDocument();
+    await act(async () => {
+      renderWithAuth(<FormManagement />);
+    });
+
+    expect(await screen.findByText(/No Forms Available/i)).toBeInTheDocument();
+  });
+
+  test('fetches forms and users on mount', async () => {
+    await act(async () => {
+      renderWithAuth(<FormManagement />, { isAdmin: true });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Form 1')).toBeInTheDocument();
+    });
+    
+    expect(api.get).toHaveBeenCalledWith('/forms/');
+    expect(api.get).toHaveBeenCalledWith('/users/');
+  });
+
+  test('adds the virtual Faculty Availability form', async () => {
+    await act(async () => {
+      renderWithAuth(<FormManagement />, { isAdmin: true });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Form 1')).toBeInTheDocument();
+      expect(screen.getByText('Faculty Availability Form')).toBeInTheDocument();
+    });
+  });
+
+  test('opens Edit Form dialog with correct data', async () => {
+    await act(async () => {
+      renderWithAuth(<FormManagement />, { isAdmin: true });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Form 1')).toBeInTheDocument();
+    });
+
+    const editButton = screen.getAllByRole('button', { name: /Edit/i })[0];
+    await act(async () => {
+      await userEvent.click(editButton);
+    });
+
+    expect(screen.getByText(/Edit Form/i)).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Test Form 1')).toBeInTheDocument();
+  });
+
+  test('deletes a form when Delete is clicked and confirmed', async () => {
+    window.confirm = jest.fn(() => true);
+    api.delete.mockResolvedValue({});
+
+    await act(async () => {
+      renderWithAuth(<FormManagement />, { isAdmin: true });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Form 1')).toBeInTheDocument();
+    });
+
+    const deleteButton = screen.getAllByRole('button', { name: /Delete/i })[0];
+    await act(async () => {
+      await userEvent.click(deleteButton);
+    });
+
+    expect(window.confirm).toHaveBeenCalled();
+    expect(api.delete).toHaveBeenCalledWith('/forms/1/');
   });
 
   test('opens Create Form dialog when Create Form button is clicked', async () => {
-    renderWithAuth(<FormManagement />, { isAdmin: true });
+    await act(async () => {
+      renderWithAuth(<FormManagement />, { isAdmin: true });
+    });
 
-    const createButton = await screen.findByRole('button', { name: /Create Form/i });
-    expect(createButton).toBeInTheDocument();
+    const createButton = screen.getByRole('button', { name: /Create Form/i });
+    await act(async () => {
+      await userEvent.click(createButton);
+    });
 
-    await userEvent.click(createButton);
+    expect(screen.getByText(/Create New Form/i)).toBeInTheDocument();
+  });
 
-    const dialogTitle = await screen.findByText(/Create New Form/i);
-    expect(dialogTitle).toBeInTheDocument();
+  test('does not close dialog when submitting form without a title', async () => {
+    await act(async () => {
+      renderWithAuth(<FormManagement />, { isAdmin: true });
+    });
+
+    const createButton = screen.getByRole('button', { name: /Create Form/i });
+    await act(async () => {
+      await userEvent.click(createButton);
+    });
+
+    const submitButton = screen.getByRole('button', { name: /Create/i });
+    await act(async () => {
+      await userEvent.click(submitButton);
+    });
+
+    expect(screen.getByText(/Create New Form/i)).toBeInTheDocument();
   });
 
   test('renders the Form Management page title', async () => {
@@ -82,26 +206,7 @@ describe('FormManagement', () => {
     const dialogTitle = await screen.findByText(/Create New Form/i);
     expect(dialogTitle).toBeInTheDocument();
   });
-  test('does not close dialog when submitting form without a title', async () => {
-    renderWithAuth(<FormManagement />, { isAdmin: true });
-  
-    // Open Create Form dialog
-    const createButton = await screen.findByRole('button', { name: /Create Form/i });
-    await userEvent.click(createButton);
-  
-    const dialogTitle = await screen.getByText(/Create New Form/i);
-    expect(dialogTitle).toBeInTheDocument();
-  
-    // Do NOT fill Title
-  
-    // Submit the form
-    const submitButton = await screen.findByRole('button', { name: /Create/i });
-    await userEvent.click(submitButton);
-  
-    // ✅ After clicking, just confirm dialog is STILL there immediately
-    const stillOpenDialog = screen.getByText(/Create New Form/i);
-    expect(stillOpenDialog).toBeInTheDocument();
-  });
+
   test('allows adding multiple fields dynamically', async () => {
     renderWithAuth(<FormManagement />, { isAdmin: true });
   
@@ -135,5 +240,426 @@ describe('FormManagement', () => {
     expect(allFieldLabelInputs[0]).toHaveValue('First Name');
     expect(allFieldLabelInputs[1]).toHaveValue('Last Name');
   });
-  
+
+  test('assigns users to a form', async () => {
+    renderWithAuth(<FormManagement />, { isAdmin: true });
+    expect(await screen.findByText('Test Form 1')).toBeInTheDocument();
+    // Open create form dialog
+    const createButton = await screen.findByRole('button', { name: /Create Form/i });
+    await userEvent.click(createButton);
+    // Wait for user autocomplete to appear
+    const assignInput = await screen.findByLabelText(/Assign To Users/i);
+    await userEvent.click(assignInput);
+    // Type to filter users
+    await userEvent.type(assignInput, 'user@example.com');
+    // Wait for the option to appear in the dropdown (MUI Autocomplete renders in a portal)
+    const option = await screen.findByText('user@example.com', {}, { timeout: 2000 });
+    await userEvent.click(option);
+    // The chip should appear
+    expect(screen.getByText('user@example.com')).toBeInTheDocument();
+  });
+
+  test('adds and removes options for select field', async () => {
+    renderWithAuth(<FormManagement />, { isAdmin: true });
+    expect(await screen.findByText('Test Form 1')).toBeInTheDocument();
+    
+    // Open create form dialog
+    const createButton = screen.getByRole('button', { name: /Create Form/i });
+    await userEvent.click(createButton);
+    
+    // Wait for dialog to open
+    expect(await screen.findByText(/Create New Form/i)).toBeInTheDocument();
+    
+    // Add a field
+    const addFieldButton = screen.getByRole('button', { name: /Add Field/i });
+    await userEvent.click(addFieldButton);
+    
+    // Find the Field Type select trigger (MUI renders as button with no name, so use getAllByRole)
+    // It's the second input in the field paper, so get all comboboxes
+    const fieldTypeSelects = screen.getAllByRole('button');
+    // Find the one that has aria-haspopup="listbox" and is not the dialog close/cancel/create
+    const fieldTypeSelect = fieldTypeSelects.find(
+      btn => btn.getAttribute('aria-haspopup') === 'listbox'
+    );
+    expect(fieldTypeSelect).toBeTruthy();
+    await userEvent.click(fieldTypeSelect);
+    
+    // Find and click Dropdown in the listbox that appears
+    const dropdownOption = await screen.findByRole('option', { name: 'Dropdown' });
+    await userEvent.click(dropdownOption);
+    
+    // Add an option
+    const addOptionButton = screen.getByRole('button', { name: /Add Option/i });
+    await userEvent.click(addOptionButton);
+    
+    // Find and fill the option input
+    const optionInput = screen.getByPlaceholderText('Option label');
+    await userEvent.type(optionInput, 'Option 1');
+    expect(optionInput).toHaveValue('Option 1');
+    
+    // Find and click delete button by its icon
+    const deleteIcon = screen.getByTestId('DeleteIcon');
+    await userEvent.click(deleteIcon);
+    
+    // Option input should be gone
+    expect(screen.queryByPlaceholderText('Option label')).not.toBeInTheDocument();
+  });
+
+  test('shows error if field label is missing', async () => {
+    renderWithAuth(<FormManagement />, { isAdmin: true });
+    expect(await screen.findByText('Test Form 1')).toBeInTheDocument();
+    
+    // Open create form dialog
+    const createButton = screen.getByRole('button', { name: /Create Form/i });
+    await userEvent.click(createButton);
+    
+    // Wait for dialog to open
+    expect(await screen.findByText(/Create New Form/i)).toBeInTheDocument();
+    
+    // Add a field without setting a label
+    const addFieldButton = screen.getByRole('button', { name: /Add Field/i });
+    await userEvent.click(addFieldButton);
+    
+    // Try to submit
+    const submitButton = screen.getByRole('button', { name: /Create/i });
+    await userEvent.click(submitButton);
+    
+    // The error should appear in a Snackbar/Alert
+    expect(await screen.findByText(/All fields must have a label/i)).toBeInTheDocument();
+  });
+
+  test('shows error if select/radio/checkbox field has no options', async () => {
+    renderWithAuth(<FormManagement />, { isAdmin: true });
+    expect(await screen.findByText('Test Form 1')).toBeInTheDocument();
+    
+    // Open create form dialog
+    const createButton = screen.getByRole('button', { name: /Create Form/i });
+    await userEvent.click(createButton);
+    
+    // Wait for dialog to open
+    expect(await screen.findByText(/Create New Form/i)).toBeInTheDocument();
+    
+    // Add a field
+    const addFieldButton = screen.getByRole('button', { name: /Add Field/i });
+    await userEvent.click(addFieldButton);
+    
+    // Set label
+    const labelInput = screen.getAllByLabelText(/Field Label/i)[0];
+    await userEvent.type(labelInput, 'Select Field');
+    
+    // Find the Field Type select trigger
+    const fieldTypeSelects = screen.getAllByRole('button');
+    const fieldTypeSelect = fieldTypeSelects.find(
+      btn => btn.getAttribute('aria-haspopup') === 'listbox'
+    );
+    expect(fieldTypeSelect).toBeTruthy();
+    await userEvent.click(fieldTypeSelect);
+    
+    // Select Dropdown from the menu
+    const dropdownOption = await screen.findByRole('option', { name: 'Dropdown' });
+    await userEvent.click(dropdownOption);
+    
+    // Try to submit without options
+    const submitButton = screen.getByRole('button', { name: /Create/i });
+    await userEvent.click(submitButton);
+    
+    // Wait for error message in Snackbar/Alert
+    expect(await screen.findByText(/Select Field must have at least one option/i)).toBeInTheDocument();
+  });
+
+  test('cancel closes the create/edit dialog', async () => {
+    renderWithAuth(<FormManagement />, { isAdmin: true });
+    // Open create form dialog
+    const createButton = await screen.findByRole('button', { name: /Create Form/i });
+    await userEvent.click(createButton);
+    // Click cancel
+    const cancelButton = await screen.findByRole('button', { name: /Cancel/i });
+    await userEvent.click(cancelButton);
+    // Dialog should close
+    await waitFor(() => {
+      expect(screen.queryByText(/Create New Form/i)).not.toBeInTheDocument();
+    });
+  });
+
+  // --- Faculty Availability Invite Dialog ---
+
+  test('opens and closes the Invite Faculty dialog', async () => {
+    renderWithAuth(<FormManagement />, { isAdmin: true });
+    expect(await screen.findByText('Faculty Availability Form')).toBeInTheDocument();
+
+    // Open dialog
+    const inviteButton = screen.getByRole('button', { name: /Invite Faculty/i });
+    await userEvent.click(inviteButton);
+
+    expect(await screen.findByText(/Invite Faculty for Availability/i)).toBeInTheDocument();
+
+    // Close dialog
+    const cancelButton = screen.getByRole('button', { name: /Cancel/i });
+    await userEvent.click(cancelButton);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Invite Faculty for Availability/i)).not.toBeInTheDocument();
+    });
+  });
+
+  test('selects a season and candidates in Invite Faculty dialog', async () => {
+    // Mock seasons and candidate sections
+    const mockSeason = { id: 's1', title: 'Spring 2024', end_date: '2099-12-31' };
+    const mockCandidateSection = {
+      id: 'c1',
+      candidate: { id: 10, first_name: 'Alice', last_name: 'Smith' },
+      arrival_date: '2024-04-01',
+      leaving_date: '2024-04-10'
+    };
+    api.get.mockImplementation((url) => {
+      if (url === '/forms/') return Promise.resolve({ data: [mockForm] });
+      if (url === '/users/') return Promise.resolve({ data: [mockUser] });
+      if (url.startsWith('/users/?user_type=faculty')) return Promise.resolve({ data: [mockUser] });
+      return Promise.resolve({ data: [] });
+    });
+    require('../api/api').seasonsAPI.getSeasons.mockResolvedValue({ data: [mockSeason] });
+    require('../api/api').candidateSectionsAPI.getCandidateSectionsBySeason.mockResolvedValue({ data: [mockCandidateSection] });
+    require('../api/api').default.get.mockImplementation((url) => {
+      if (url === '/users/?user_type=faculty') return Promise.resolve({ data: [mockUser] });
+      if (url === '/forms/') return Promise.resolve({ data: [mockForm] });
+      if (url === '/users/') return Promise.resolve({ data: [mockUser] });
+      return Promise.resolve({ data: [] });
+    });
+
+    renderWithAuth(<FormManagement />, { isAdmin: true });
+    expect(await screen.findByText('Faculty Availability Form')).toBeInTheDocument();
+
+    // Open dialog
+    const inviteButton = screen.getByRole('button', { name: /Invite Faculty/i });
+    await userEvent.click(inviteButton);
+
+    // Select season
+    const seasonSelect = await screen.findByLabelText(/Select Season/i);
+    await userEvent.click(seasonSelect);
+    const seasonOption = await screen.findByText('Spring 2024');
+    await userEvent.click(seasonOption);
+
+    // Candidate should appear
+    expect(await screen.findByText(/Alice Smith/)).toBeInTheDocument();
+
+    // Select candidate
+    const candidateCheckbox = screen.getByRole('checkbox', { name: '' });
+    await userEvent.click(candidateCheckbox);
+
+    // Select faculty
+    const facultyCheckbox = screen.getAllByRole('checkbox').find((cb, idx) => idx > 0); // skip first, which is candidate
+    await userEvent.click(facultyCheckbox);
+
+    // Send invitations
+    const sendButton = screen.getByRole('button', { name: /Send Invitations/i });
+    require('../api/api').availabilityInvitationAPI.inviteFaculty.mockResolvedValue({ data: { message: 'Invited!' } });
+    await userEvent.click(sendButton);
+
+    // Success snackbar
+    expect(await screen.findByText(/Successfully sent invitations/i)).toBeInTheDocument();
+  });
+
+  test('handles error when sending faculty invitations fails', async () => {
+    // Ensure faculty and season mocks are present
+    const mockSeason = { id: 's1', title: 'Spring 2024', end_date: '2099-12-31' };
+    const mockCandidateSection = {
+      id: 'c1',
+      candidate: { id: 10, first_name: 'Alice', last_name: 'Smith' },
+      arrival_date: '2024-04-01',
+      leaving_date: '2024-04-10'
+    };
+    api.get.mockImplementation((url) => {
+      if (url === '/forms/') return Promise.resolve({ data: [mockForm] });
+      if (url === '/users/') return Promise.resolve({ data: [mockUser] });
+      if (url.startsWith('/users/?user_type=faculty')) return Promise.resolve({ data: [mockUser] });
+      return Promise.resolve({ data: [] });
+    });
+    require('../api/api').seasonsAPI.getSeasons.mockResolvedValue({ data: [mockSeason] });
+    require('../api/api').candidateSectionsAPI.getCandidateSectionsBySeason.mockResolvedValue({ data: [mockCandidateSection] });
+    require('../api/api').default.get.mockImplementation((url) => {
+      if (url === '/users/?user_type=faculty') return Promise.resolve({ data: [mockUser] });
+      if (url === '/forms/') return Promise.resolve({ data: [mockForm] });
+      if (url === '/users/') return Promise.resolve({ data: [mockUser] });
+      return Promise.resolve({ data: [] });
+    });
+
+    renderWithAuth(<FormManagement />, { isAdmin: true });
+    expect(await screen.findByText('Faculty Availability Form')).toBeInTheDocument();
+
+    // Open dialog
+    const inviteButton = screen.getByRole('button', { name: /Invite Faculty/i });
+    await userEvent.click(inviteButton);
+
+    // Wait for dialog to open
+    expect(await screen.findByText(/Invite Faculty for Availability/i)).toBeInTheDocument();
+
+    // Wait for the Send Invitations button to be enabled (after loading)
+    const sendButton = await screen.findByRole('button', { name: /Send Invitations/i });
+
+    // Try to send with nothing selected
+    await userEvent.click(sendButton);
+
+    expect(await screen.findByText(/Please select at least one candidate and one faculty member/i)).toBeInTheDocument();
+  });
+
+  // --- Send Form Link Dialog ---
+
+  test('opens and closes the Send Form Link dialog', async () => {
+    renderWithAuth(<FormManagement />, { isAdmin: true });
+    expect(await screen.findByText('Test Form 1')).toBeInTheDocument();
+
+    // Open dialog
+    const sendLinkButton = screen.getByRole('button', { name: /Send Link/i });
+    await userEvent.click(sendLinkButton);
+
+    expect(await screen.findByText(/Send Form Link to Users/i)).toBeInTheDocument();
+
+    // Close dialog
+    const cancelButton = screen.getByRole('button', { name: /Cancel/i });
+    await userEvent.click(cancelButton);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Send Form Link to Users/i)).not.toBeInTheDocument();
+    });
+  });
+
+  test('shows error if no users selected in Send Form Link dialog', async () => {
+    renderWithAuth(<FormManagement />, { isAdmin: true });
+    expect(await screen.findByText('Test Form 1')).toBeInTheDocument();
+
+    // Open dialog
+    const sendLinkButton = screen.getByRole('button', { name: /Send Link/i });
+    await userEvent.click(sendLinkButton);
+
+    // The button should be disabled
+    const sendButton = screen.getByRole('button', { name: /Send Link to 0 User/i });
+    expect(sendButton).toBeDisabled();
+
+    // Optionally, try to click and catch the error (should not throw)
+    // await userEvent.click(sendButton); // This will throw, so we skip it
+
+    // Instead, check that the error does not appear (since button is disabled)
+    expect(screen.queryByText(/Please select at least one user/i)).not.toBeInTheDocument();
+  });
+
+  test('sends form link to selected user', async () => {
+    renderWithAuth(<FormManagement />, { isAdmin: true });
+    expect(await screen.findByText('Test Form 1')).toBeInTheDocument();
+
+    // Open dialog
+    const sendLinkButton = screen.getByRole('button', { name: /Send Link/i });
+    await userEvent.click(sendLinkButton);
+
+    // Select user
+    const userCheckbox = screen.getByRole('checkbox');
+    await userEvent.click(userCheckbox);
+
+    // Mock API
+    require('../api/api').usersAPI.sendFormLink.mockResolvedValue({});
+
+    // Send
+    const sendButton = screen.getByRole('button', { name: /Send Link to 1 User/i });
+    await userEvent.click(sendButton);
+
+    expect(await screen.findByText(/Form link sent successfully/i)).toBeInTheDocument();
+  });
+
+  // --- View Submissions Dialog ---
+
+  test('opens and closes the View Submissions dialog for a normal form', async () => {
+    // Ensure the mockForm has form_fields
+    const formWithFields = {
+      ...mockForm,
+      form_fields: [{ id: 'f1', label: 'Field 1', type: 'text' }]
+    };
+    api.get.mockImplementation((url) => {
+      if (url === '/forms/') return Promise.resolve({ data: [formWithFields] });
+      if (url === '/users/') return Promise.resolve({ data: [mockUser] });
+      return Promise.resolve({ data: [] });
+    });
+
+    renderWithAuth(<FormManagement />, { isAdmin: true });
+    expect(await screen.findByText('Test Form 1')).toBeInTheDocument();
+
+    // Open dialog
+    // There may only be one "View Submissions" button if only one form is present
+    const viewButtons = screen.getAllByRole('button', { name: /View Submissions/i });
+    const viewButton = viewButtons[viewButtons.length - 1]; // last one is the real form
+    await userEvent.click(viewButton);
+
+    expect(await screen.findByText(/Test Form 1 - Submissions/i)).toBeInTheDocument();
+
+    // Close dialog
+    const closeButton = screen.getByRole('button', { name: /Close/i });
+    await userEvent.click(closeButton);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Test Form 1 - Submissions/i)).not.toBeInTheDocument();
+    });
+  });
+
+  test('opens and closes the View Submissions dialog for the virtual form', async () => {
+    // Ensure both forms are present
+    const formWithFields = {
+      ...mockForm,
+      form_fields: [{ id: 'f1', label: 'Field 1', type: 'text' }]
+    };
+    api.get.mockImplementation((url) => {
+      if (url === '/forms/') return Promise.resolve({ data: [formWithFields] });
+      if (url === '/users/') return Promise.resolve({ data: [mockUser] });
+      return Promise.resolve({ data: [] });
+    });
+
+    renderWithAuth(<FormManagement />, { isAdmin: true });
+    expect(await screen.findByText('Faculty Availability Form')).toBeInTheDocument();
+
+    // Open dialog
+    const viewButton = screen.getAllByRole('button', { name: /View Submissions/i })[0];
+    await userEvent.click(viewButton);
+
+    expect(await screen.findByText(/Faculty Availability Form - Submissions/i)).toBeInTheDocument();
+
+    // Close dialog
+    const closeButton = screen.getByRole('button', { name: /Close/i });
+    await userEvent.click(closeButton);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Faculty Availability Form - Submissions/i)).not.toBeInTheDocument();
+    });
+  });
+
+  // --- Snackbar ---
+
+  test('snackbar closes when close button is clicked', async () => {
+    // Ensure a form is present
+    api.get.mockImplementation((url) => {
+      if (url === '/forms/') return Promise.resolve({ data: [mockForm] });
+      if (url === '/users/') return Promise.resolve({ data: [mockUser] });
+      return Promise.resolve({ data: [] });
+    });
+    renderWithAuth(<FormManagement />, { isAdmin: true });
+
+    // Manually trigger snackbar by simulating a failed delete
+    api.delete.mockRejectedValue({ response: { data: { error: 'Failed to delete' } } });
+
+    // Open dialog and delete
+    const deleteButton = await screen.findByRole('button', { name: /Delete/i });
+    await userEvent.click(deleteButton);
+
+    // Snackbar should appear
+    const errorSnackbar = await screen.findByText(/Failed to delete/i);
+    expect(errorSnackbar).toBeInTheDocument();
+
+    // Close snackbar
+    // The close button in MUI Snackbar/Alert is usually the first button with no name
+    const closeButton = screen.getAllByRole('button').find(
+      btn => btn.getAttribute('aria-label') === 'Close'
+    );
+    expect(closeButton).toBeTruthy();
+    await userEvent.click(closeButton);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Failed to delete/i)).not.toBeInTheDocument();
+    });
+  });
 });

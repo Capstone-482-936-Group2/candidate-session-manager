@@ -136,18 +136,6 @@ const Login = () => {
                 borderRadius: 1.5,
                 fontSize: '0.95rem'
               }}
-              action={
-                error.includes('not associated with an approved user') && (
-                  <Button 
-                    color="inherit" 
-                    size="small" 
-                    onClick={() => navigate('/register')}
-                    sx={{ fontWeight: 600 }}
-                  >
-                    Register
-                  </Button>
-                )
-              }
             >
               {error}
             </Alert>

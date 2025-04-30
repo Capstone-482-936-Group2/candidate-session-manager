@@ -36,6 +36,7 @@ from django.utils.dateparse import parse_date
 from django.http import FileResponse, HttpResponseNotFound
 import urllib.parse
 import tempfile
+from rest_framework.exceptions import PermissionDenied
 
 
 logger = logging.getLogger(__name__)
@@ -75,7 +76,11 @@ class UserViewSet(viewsets.ModelViewSet):
             return [permissions.IsAuthenticated()]
         elif self.action == 'send_form_link':
             return [permissions.IsAuthenticated()]
-        # For other actions like update/delete
+        # For create, update, partial_update actions (critical for user management)
+        elif self.action in ['create', 'update', 'partial_update', 'destroy']:
+            # We'll check role-based permissions in the perform_* methods
+            return [permissions.IsAuthenticated()]
+        # For other actions
         return [permissions.IsAuthenticated()]
     
     def get_queryset(self):
@@ -114,8 +119,8 @@ class UserViewSet(viewsets.ModelViewSet):
     def google_login(self, request):
         """
         Handle Google OAuth login.
-        Verifies the Google ID token, creates or retrieves the user,
-        and logs them into the system.
+        Verifies the Google ID token, retrieves the user if they exist in the database,
+        and logs them into the system. Only users pre-registered by an admin can log in.
         """
         try:
             # Check if request.data is a QueryDict, dict, or something else
@@ -157,19 +162,21 @@ class UserViewSet(viewsets.ModelViewSet):
 
             # Get user info from the verified token
             email = idinfo['email']
-            first_name = idinfo.get('given_name', '')
-            last_name = idinfo.get('family_name', '')
-
-            # Get or create user
-            user, created = User.objects.get_or_create(
-                email=email,
-                defaults={
-                    'first_name': first_name,
-                    'last_name': last_name,
-                    'user_type': 'candidate',
-                    'has_completed_setup': False
-                }
-            )
+            
+            # Check if user exists in database (must be pre-registered)
+            try:
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                return Response(
+                    {'error': 'This email is not associated with an approved user. Please contact an administrator to request access.'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            # Update user info if needed
+            if not user.first_name or not user.last_name:
+                user.first_name = idinfo.get('given_name', '')
+                user.last_name = idinfo.get('family_name', '')
+                user.save()
 
             # Create or update social account
             social_account, _ = SocialAccount.objects.update_or_create(
@@ -820,6 +827,75 @@ class UserViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(user)
         return Response(serializer.data)
+
+    def perform_create(self, serializer):
+        """
+        Custom permission check before creating a user.
+        Only admin and superadmin users can create new users.
+        Only superadmins can create admin/superadmin users.
+        """
+        # Only admins or superadmins can create users
+        if not self.request.user.is_admin:
+            raise PermissionDenied("Only administrators can create new users")
+        
+        # Check if trying to create admin or superadmin
+        data = self.request.data
+        user_type = data.get('user_type', 'candidate')
+        
+        # Only superadmins can create admin or superadmin users
+        if user_type in ['admin', 'superadmin'] and not self.request.user.is_superadmin:
+            raise PermissionDenied("Only superadmins can create admin or superadmin users")
+        
+        # Create the user
+        serializer.save()
+
+    def perform_update(self, serializer):
+        """
+        Custom permission check before updating a user.
+        Only superadmins can update another superadmin.
+        Only superadmins can upgrade a user to admin/superadmin.
+        """
+        instance = serializer.instance
+        user = self.request.user
+        data = self.request.data
+        
+        # If updating user_type, enforce permissions
+        if 'user_type' in data:
+            new_user_type = data.get('user_type')
+            
+            # Superadmin cannot change other superadmin roles
+            if instance.user_type == 'superadmin' and instance.id != user.id and not user.is_superadmin:
+                raise PermissionDenied("Cannot update another superadmin's profile")
+            
+            # Only superadmins can set user type to admin or superadmin
+            if new_user_type in ['admin', 'superadmin'] and not user.is_superadmin:
+                raise PermissionDenied("Only superadmins can set user type to admin or superadmin")
+            
+            # Admins can only update non-admin users
+            if not user.is_superadmin and instance.user_type in ['admin', 'superadmin']:
+                raise PermissionDenied("Admins cannot update admin or superadmin users")
+        
+        # Perform the update
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        """
+        Custom permission check before deleting a user.
+        Only superadmins can delete users.
+        Superadmins cannot delete other superadmins.
+        """
+        user = self.request.user
+        
+        # Only superadmins can delete users
+        if not user.is_superadmin:
+            raise PermissionDenied("Only superadmins can delete users")
+        
+        # Superadmins cannot delete other superadmins
+        if instance.user_type == 'superadmin' and instance.id != user.id:
+            raise PermissionDenied("Cannot delete another superadmin")
+        
+        # Delete the user
+        instance.delete()
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])

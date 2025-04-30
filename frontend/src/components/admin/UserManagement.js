@@ -578,23 +578,19 @@ const UserManagement = () => {
                     name="user_type"
                     value={formData.user_type}
                     onChange={(e) => {
-                      const newUserType = e.target.value;
+                      console.log("Selected:", e.target.value); 
                       setFormData({ 
                         ...formData, 
-                        user_type: newUserType,
-                        room_number: newUserType === 'candidate' ? '' : formData.room_number
+                        user_type: e.target.value,
+                        room_number: e.target.value === 'candidate' ? '' : formData.room_number
                       });
                     }}
                     label="User Type"
                   >
                     <MenuItem value="candidate">Candidate</MenuItem>
                     <MenuItem value="faculty">Faculty</MenuItem>
-                    {isSuperAdmin && (
-                      <>
-                        <MenuItem value="admin">Admin</MenuItem>
-                        <MenuItem value="superadmin">Super Admin</MenuItem>
-                      </>
-                    )}
+                    <MenuItem value="admin">Admin</MenuItem>
+                    <MenuItem value="superadmin">Super Admin</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
