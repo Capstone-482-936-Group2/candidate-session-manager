@@ -1315,6 +1315,7 @@ const CandidateSectionManagement = () => {
                             secondaryAction={
                               <Box>
                                 <IconButton
+                                  data-testid="edit-icon"
                                   edge="end"
                                   aria-label="edit"
                                   onClick={() => handleOpenEditTimeSlotDialog(slot)}
@@ -1323,6 +1324,7 @@ const CandidateSectionManagement = () => {
                                   <EditIcon />
                                 </IconButton>
                                 <IconButton 
+                                  data-testid="delete-time-slot-1"
                                   edge="end" 
                                   aria-label="delete"
                                   onClick={() => handleDeleteTimeSlot(slot.id)}
@@ -2010,6 +2012,7 @@ const CandidateSectionManagement = () => {
                     </List>
                     
                     <Button
+                      data-testid="import-availability-button"
                       variant="contained"
                       color="primary"
                       onClick={() => handleImportAvailability(availability.id)}

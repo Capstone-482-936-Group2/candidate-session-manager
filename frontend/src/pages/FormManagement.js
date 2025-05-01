@@ -147,7 +147,6 @@ const FormManagement = () => {
       const response = await api.get('/forms/');
       setForms(response.data);
     } catch (error) {
-      console.error('Error fetching forms:', error);
     }
   };
 
@@ -159,7 +158,6 @@ const FormManagement = () => {
       const response = await api.get('/users/');
       setUsers(response.data);
     } catch (error) {
-      console.error('Error fetching users:', error);
     }
   };
 
@@ -199,7 +197,6 @@ const FormManagement = () => {
         await api.delete(`/forms/${formId}/`);
         fetchForms();
       } catch (error) {
-        console.error('Error deleting form:', error);
       }
     }
   };
@@ -233,10 +230,6 @@ const FormManagement = () => {
         setOpenSendLinkDialog(false);
       }, 2000);
     } catch (err) {
-      console.error('Error sending form link:', err);
-      console.error('Error details:', err.response?.data);
-      console.error('Error status:', err.response?.status);
-      console.error('Error headers:', err.response?.headers);
       setError(err.response?.data?.error || 'Failed to send form link');
     }
   };
@@ -427,7 +420,6 @@ ${currentUser?.email}`);
       setOpenDialog(false);
       fetchForms();
     } catch (err) {
-      console.error('Error details:', err.response?.data);
       const errorMessage = err.response?.data?.error || err.response?.data?.detail || 'Failed to save form';
       setError(errorMessage);
     }
@@ -445,7 +437,6 @@ ${currentUser?.email}`);
       );
       setSeasons(activeSeasons);
     } catch (err) {
-      console.error('Error fetching seasons:', err);
       setSnackbar({
         open: true,
         message: 'Failed to load seasons',
@@ -464,7 +455,6 @@ ${currentUser?.email}`);
       setCandidateSections(response.data);
       setSelectedSeason(seasonId);
     } catch (err) {
-      console.error('Error fetching candidate sections:', err);
       setSnackbar({
         open: true,
         message: 'Failed to load candidates',
@@ -481,7 +471,6 @@ ${currentUser?.email}`);
       const response = await api.get('/users/?user_type=faculty');
       setFacultyUsers(response.data);
     } catch (err) {
-      console.error('Error fetching faculty users:', err);
       setSnackbar({
         open: true,
         message: 'Failed to load faculty users',
@@ -568,8 +557,6 @@ ${currentUser?.email}`);
       
       handleCloseInviteDialog();
     } catch (err) {
-      console.error('Error sending invitations:', err);
-      console.error('Error details:', err.response?.data);
       setSnackbar({
         open: true,
         message: 'Failed to send invitations: ' + (err.response?.data?.error || err.message),
@@ -597,7 +584,6 @@ ${currentUser?.email}`);
       const selectedSection = candidateSections.find(section => section.id === candidateId);
       
       if (!selectedSection || !selectedSection.candidate || !selectedSection.candidate.id) {
-        console.error('Cannot find candidate data for importing preferred faculty');
         return;
       }
       
@@ -660,7 +646,6 @@ ${currentUser?.email}`);
       });
       
     } catch (error) {
-      console.error('Error importing preferred faculty:', error);
       setSnackbar({
         open: true,
         message: 'Failed to import preferred faculty members. Please try again.',

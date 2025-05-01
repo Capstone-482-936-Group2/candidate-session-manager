@@ -5,8 +5,30 @@ import userEvent from '@testing-library/user-event';
 import { act } from 'react-dom/test-utils';
 import FormManagement from './FormManagement';
 import { AuthContext } from '../context/AuthContext';
+import { unstable_ClassNameGenerator as ClassNameGenerator } from '@mui/material/className';
 
-// Mock the entire api module
+// Mock the components
+jest.mock('../components/admin/FormSubmissions', () => ({
+  __esModule: true,
+  default: () => ({
+    $$typeof: Symbol.for('react.element'),
+    type: 'div',
+    props: { children: 'Form Submissions Content' },
+    ref: null
+  })
+}));
+
+jest.mock('../components/admin/FacultyAvailabilitySubmissions', () => ({
+  __esModule: true,
+  default: () => ({
+    $$typeof: Symbol.for('react.element'),
+    type: 'div',
+    props: { children: 'Faculty Availability Submissions Content' },
+    ref: null
+  })
+}));
+
+// Mock the api module
 jest.mock('../api/api', () => {
   const mockApi = {
     get: jest.fn(),
@@ -38,6 +60,21 @@ jest.mock('../api/api', () => {
 // Import the mocked module to use in tests
 import api, { usersAPI } from '../api/api';
 
+// Add at the top of the file after imports
+ClassNameGenerator.configure((componentName) => componentName);
+
+// Add a custom render function that includes MUI setup
+const customRender = (ui, options = {}) => {
+  return render(ui, {
+    wrapper: ({ children }) => (
+      <AuthContext.Provider value={{ currentUser: {}, isAdmin: true, loading: false }}>
+        {children}
+      </AuthContext.Provider>
+    ),
+    ...options,
+  });
+};
+
 // Helper to render with AuthContext
 const renderWithAuth = (ui, { currentUser = {}, isAdmin = true } = {}) => {
   return render(
@@ -45,6 +82,48 @@ const renderWithAuth = (ui, { currentUser = {}, isAdmin = true } = {}) => {
       {ui}
     </AuthContext.Provider>
   );
+};
+
+// Add this helper function at the top of the test file
+const setupMockForm = () => {
+  const mockForm = {
+    id: 1,
+    title: 'Test Form 1',
+    description: 'A test form',
+    is_active: true,
+    form_fields: [{ id: 'f1', label: 'Field 1', type: 'text' }]
+  };
+
+  const mockFacultyForm = {
+    id: 'faculty-availability',
+    title: 'Faculty Availability Form',
+    description: 'Faculty availability form',
+    is_active: true,
+    is_virtual: true
+  };
+
+  // Mock API responses
+  api.get.mockImplementation((url) => {
+    switch (url) {
+      case '/forms/':
+        return Promise.resolve({ data: [mockForm, mockFacultyForm] });
+      case '/users/':
+        return Promise.resolve({ data: [{ id: 1, email: 'test@test.com' }] });
+      case '/users/?user_type=faculty':
+        return Promise.resolve({ data: [{ id: 'fac1', email: 'faculty@test.com' }] });
+      default:
+        return Promise.resolve({ data: [] });
+    }
+  });
+
+  return { mockForm, mockFacultyForm };
+};
+
+// Add this helper function at the top of the test file, after the imports
+const userClick = async (element) => {
+  await act(async () => {
+    await userEvent.click(element);
+  });
 };
 
 describe('FormManagement', () => {
@@ -88,7 +167,7 @@ describe('FormManagement', () => {
     });
 
     await act(async () => {
-      renderWithAuth(<FormManagement />);
+      customRender(<FormManagement />);
     });
 
     expect(await screen.findByText(/No Forms Available/i)).toBeInTheDocument();
@@ -96,7 +175,7 @@ describe('FormManagement', () => {
 
   test('fetches forms and users on mount', async () => {
     await act(async () => {
-      renderWithAuth(<FormManagement />, { isAdmin: true });
+      customRender(<FormManagement />);
     });
 
     await waitFor(() => {
@@ -109,7 +188,7 @@ describe('FormManagement', () => {
 
   test('adds the virtual Faculty Availability form', async () => {
     await act(async () => {
-      renderWithAuth(<FormManagement />, { isAdmin: true });
+      customRender(<FormManagement />);
     });
 
     await waitFor(() => {
@@ -120,7 +199,7 @@ describe('FormManagement', () => {
 
   test('opens Edit Form dialog with correct data', async () => {
     await act(async () => {
-      renderWithAuth(<FormManagement />, { isAdmin: true });
+      customRender(<FormManagement />);
     });
 
     await waitFor(() => {
@@ -141,7 +220,7 @@ describe('FormManagement', () => {
     api.delete.mockResolvedValue({});
 
     await act(async () => {
-      renderWithAuth(<FormManagement />, { isAdmin: true });
+      customRender(<FormManagement />);
     });
 
     await waitFor(() => {
@@ -159,7 +238,7 @@ describe('FormManagement', () => {
 
   test('opens Create Form dialog when Create Form button is clicked', async () => {
     await act(async () => {
-      renderWithAuth(<FormManagement />, { isAdmin: true });
+      customRender(<FormManagement />);
     });
 
     const createButton = screen.getByRole('button', { name: /Create Form/i });
@@ -172,7 +251,7 @@ describe('FormManagement', () => {
 
   test('does not close dialog when submitting form without a title', async () => {
     await act(async () => {
-      renderWithAuth(<FormManagement />, { isAdmin: true });
+      customRender(<FormManagement />);
     });
 
     const createButton = screen.getByRole('button', { name: /Create Form/i });
@@ -189,14 +268,14 @@ describe('FormManagement', () => {
   });
 
   test('renders the Form Management page title', async () => {
-    renderWithAuth(<FormManagement />, { isAdmin: true });
+    customRender(<FormManagement />);
 
     const pageTitle = await screen.findByText(/Form Management/i);
     expect(pageTitle).toBeInTheDocument();
   });
 
   test('Create Form button opens dialog', async () => {
-    renderWithAuth(<FormManagement />, { isAdmin: true });
+    customRender(<FormManagement />);
   
     const createButton = await screen.findByRole('button', { name: /Create Form/i });
     expect(createButton).toBeInTheDocument();
@@ -208,7 +287,7 @@ describe('FormManagement', () => {
   });
 
   test('allows adding multiple fields dynamically', async () => {
-    renderWithAuth(<FormManagement />, { isAdmin: true });
+    customRender(<FormManagement />);
   
     // Open Create Form dialog
     const createButton = await screen.findByRole('button', { name: /Create Form/i });
@@ -242,7 +321,7 @@ describe('FormManagement', () => {
   });
 
   test('assigns users to a form', async () => {
-    renderWithAuth(<FormManagement />, { isAdmin: true });
+    customRender(<FormManagement />);
     expect(await screen.findByText('Test Form 1')).toBeInTheDocument();
     // Open create form dialog
     const createButton = await screen.findByRole('button', { name: /Create Form/i });
@@ -260,7 +339,7 @@ describe('FormManagement', () => {
   });
 
   test('adds and removes options for select field', async () => {
-    renderWithAuth(<FormManagement />, { isAdmin: true });
+    customRender(<FormManagement />);
     expect(await screen.findByText('Test Form 1')).toBeInTheDocument();
     
     // Open create form dialog
@@ -306,7 +385,7 @@ describe('FormManagement', () => {
   });
 
   test('shows error if field label is missing', async () => {
-    renderWithAuth(<FormManagement />, { isAdmin: true });
+    customRender(<FormManagement />);
     expect(await screen.findByText('Test Form 1')).toBeInTheDocument();
     
     // Open create form dialog
@@ -329,7 +408,7 @@ describe('FormManagement', () => {
   });
 
   test('shows error if select/radio/checkbox field has no options', async () => {
-    renderWithAuth(<FormManagement />, { isAdmin: true });
+    customRender(<FormManagement />);
     expect(await screen.findByText('Test Form 1')).toBeInTheDocument();
     
     // Open create form dialog
@@ -368,7 +447,7 @@ describe('FormManagement', () => {
   });
 
   test('cancel closes the create/edit dialog', async () => {
-    renderWithAuth(<FormManagement />, { isAdmin: true });
+    customRender(<FormManagement />);
     // Open create form dialog
     const createButton = await screen.findByRole('button', { name: /Create Form/i });
     await userEvent.click(createButton);
@@ -384,7 +463,7 @@ describe('FormManagement', () => {
   // --- Faculty Availability Invite Dialog ---
 
   test('opens and closes the Invite Faculty dialog', async () => {
-    renderWithAuth(<FormManagement />, { isAdmin: true });
+    customRender(<FormManagement />);
     expect(await screen.findByText('Faculty Availability Form')).toBeInTheDocument();
 
     // Open dialog
@@ -426,7 +505,7 @@ describe('FormManagement', () => {
       return Promise.resolve({ data: [] });
     });
 
-    renderWithAuth(<FormManagement />, { isAdmin: true });
+    customRender(<FormManagement />);
     expect(await screen.findByText('Faculty Availability Form')).toBeInTheDocument();
 
     // Open dialog
@@ -483,7 +562,7 @@ describe('FormManagement', () => {
       return Promise.resolve({ data: [] });
     });
 
-    renderWithAuth(<FormManagement />, { isAdmin: true });
+    customRender(<FormManagement />);
     expect(await screen.findByText('Faculty Availability Form')).toBeInTheDocument();
 
     // Open dialog
@@ -505,7 +584,7 @@ describe('FormManagement', () => {
   // --- Send Form Link Dialog ---
 
   test('opens and closes the Send Form Link dialog', async () => {
-    renderWithAuth(<FormManagement />, { isAdmin: true });
+    customRender(<FormManagement />);
     expect(await screen.findByText('Test Form 1')).toBeInTheDocument();
 
     // Open dialog
@@ -524,7 +603,7 @@ describe('FormManagement', () => {
   });
 
   test('shows error if no users selected in Send Form Link dialog', async () => {
-    renderWithAuth(<FormManagement />, { isAdmin: true });
+    customRender(<FormManagement />);
     expect(await screen.findByText('Test Form 1')).toBeInTheDocument();
 
     // Open dialog
@@ -543,7 +622,7 @@ describe('FormManagement', () => {
   });
 
   test('sends form link to selected user', async () => {
-    renderWithAuth(<FormManagement />, { isAdmin: true });
+    customRender(<FormManagement />);
     expect(await screen.findByText('Test Form 1')).toBeInTheDocument();
 
     // Open dialog
@@ -567,35 +646,26 @@ describe('FormManagement', () => {
   // --- View Submissions Dialog ---
 
   test('opens and closes the View Submissions dialog for a normal form', async () => {
-    // Ensure the mockForm has form_fields
-    const formWithFields = {
-      ...mockForm,
-      form_fields: [{ id: 'f1', label: 'Field 1', type: 'text' }]
-    };
-    api.get.mockImplementation((url) => {
-      if (url === '/forms/') return Promise.resolve({ data: [formWithFields] });
-      if (url === '/users/') return Promise.resolve({ data: [mockUser] });
-      return Promise.resolve({ data: [] });
-    });
-
-    renderWithAuth(<FormManagement />, { isAdmin: true });
-    expect(await screen.findByText('Test Form 1')).toBeInTheDocument();
-
-    // Open dialog
-    // There may only be one "View Submissions" button if only one form is present
-    const viewButtons = screen.getAllByRole('button', { name: /View Submissions/i });
-    const viewButton = viewButtons[viewButtons.length - 1]; // last one is the real form
+    const mockForm = setupMockForm();
+    
+    customRender(<FormManagement />);
+    
+    // Wait for form to appear
+    await screen.findByText(mockForm.mockForm.title);
+    
+    // Find and click View Submissions
+    const viewButton = await screen.findByRole('button', { name: /View Submissions/i });
     await userEvent.click(viewButton);
-
-    expect(await screen.findByText(/Test Form 1 - Submissions/i)).toBeInTheDocument();
-
+    
+    // Dialog title should appear
+    expect(await screen.findByText(`${mockForm.mockForm.title} - Submissions`)).toBeInTheDocument();
+    
     // Close dialog
-    const closeButton = screen.getByRole('button', { name: /Close/i });
+    const closeButton = await screen.findByRole('button', { name: /Close/i });
     await userEvent.click(closeButton);
-
-    await waitFor(() => {
-      expect(screen.queryByText(/Test Form 1 - Submissions/i)).not.toBeInTheDocument();
-    });
+    
+    // Dialog should be closed
+    expect(screen.queryByText(`${mockForm.mockForm.title} - Submissions`)).not.toBeInTheDocument();
   });
 
   test('opens and closes the View Submissions dialog for the virtual form', async () => {
@@ -610,7 +680,7 @@ describe('FormManagement', () => {
       return Promise.resolve({ data: [] });
     });
 
-    renderWithAuth(<FormManagement />, { isAdmin: true });
+    customRender(<FormManagement />);
     expect(await screen.findByText('Faculty Availability Form')).toBeInTheDocument();
 
     // Open dialog
@@ -637,7 +707,7 @@ describe('FormManagement', () => {
       if (url === '/users/') return Promise.resolve({ data: [mockUser] });
       return Promise.resolve({ data: [] });
     });
-    renderWithAuth(<FormManagement />, { isAdmin: true });
+    customRender(<FormManagement />);
 
     // Manually trigger snackbar by simulating a failed delete
     api.delete.mockRejectedValue({ response: { data: { error: 'Failed to delete' } } });
@@ -660,6 +730,329 @@ describe('FormManagement', () => {
 
     await waitFor(() => {
       expect(screen.queryByText(/Failed to delete/i)).not.toBeInTheDocument();
+    });
+  });
+});
+
+describe('Form Validation and Submission', () => {
+  test('validates form fields before submission', async () => {
+    setupMockForm();
+    await act(async () => {
+      renderWithAuth(<FormManagement />, { isAdmin: true });
+    });
+    
+    // Wait for component to load
+    await screen.findByText('Form Management');
+    
+    // Open create form dialog
+    const createButton = await screen.findByRole('button', { name: /Create Form/i });
+    await act(async () => {
+      await userEvent.click(createButton);
+    });
+    
+    // Add a field
+    const addFieldButton = await screen.findByRole('button', { name: /Add Field/i });
+    await act(async () => {
+      await userEvent.click(addFieldButton);
+    });
+    
+    // Set label
+    const labelInput = await screen.findByLabelText(/Field Label/i);
+    await act(async () => {
+      await userEvent.type(labelInput, 'Select Field');
+    });
+    
+    // Find and click the select
+    const fieldTypeSelect = await screen.findByRole('combobox', { name: /Field Type/i });
+    await act(async () => {
+      await userEvent.click(fieldTypeSelect);
+    });
+    
+    // Select dropdown option
+    const dropdownOption = await screen.findByRole('option', { name: /Dropdown/i });
+    await act(async () => {
+      await userEvent.click(dropdownOption);
+    });
+    
+    // Try to submit
+    const submitButton = await screen.findByRole('button', { name: /Create/i });
+    await act(async () => {
+      await userEvent.click(submitButton);
+    });
+    
+    // Verify error message
+    await waitFor(() => {
+      expect(screen.getByText(/Select Field must have at least one option/i)).toBeInTheDocument();
+    });
+  });
+});
+
+describe('Season Management', () => {
+  test('fetches and filters active seasons', async () => {
+    const { mockFacultyForm } = setupMockForm();
+    const mockSeasons = [
+      { id: 's1', title: 'Current Season', end_date: '2099-12-31' },
+      { id: 's2', title: 'Past Season', end_date: '2020-12-31' }
+    ];
+    
+    require('../api/api').seasonsAPI.getSeasons.mockResolvedValue({ data: mockSeasons });
+    
+    await act(async () => {
+      renderWithAuth(<FormManagement />, { isAdmin: true });
+    });
+    
+    // Wait for Faculty Availability Form to appear
+    await screen.findByText('Faculty Availability Form');
+    
+    // Find and click Invite Faculty button
+    const inviteButton = await screen.findByRole('button', { name: /Invite Faculty/i });
+    await act(async () => {
+      await userEvent.click(inviteButton);
+    });
+    
+    // Find and click the season select
+    const seasonSelect = await screen.findByRole('combobox', { name: /Select Season/i });
+    await act(async () => {
+      await userEvent.click(seasonSelect);
+    });
+    
+    // Verify season options
+    expect(screen.getByText('Current Season')).toBeInTheDocument();
+    expect(screen.queryByText('Past Season')).not.toBeInTheDocument();
+  });
+
+  test('handles season fetch error', async () => {
+    require('../api/api').seasonsAPI.getSeasons.mockRejectedValue(new Error('Failed to fetch'));
+    
+    customRender(<FormManagement />);
+    
+    const inviteButton = await screen.findByRole('button', { name: /Invite Faculty/i });
+    await userEvent.click(inviteButton);
+    
+    expect(await screen.findByText(/Failed to load seasons/i)).toBeInTheDocument();
+  });
+});
+
+describe('Candidate Sections', () => {
+  test('fetches candidate sections for selected season', async () => {
+    setupMockForm();
+    const mockCandidateSection = {
+      id: 'c1',
+      candidate: { id: 'cand1', first_name: 'John', last_name: 'Doe' },
+      arrival_date: '2024-03-01',
+      leaving_date: '2024-03-05'
+    };
+    
+    require('../api/api').candidateSectionsAPI.getCandidateSectionsBySeason.mockResolvedValue({
+      data: [mockCandidateSection]
+    });
+    
+    require('../api/api').seasonsAPI.getSeasons.mockResolvedValue({
+      data: [{ id: 's1', title: 'Spring 2024', end_date: '2099-12-31' }]
+    });
+    
+    customRender(<FormManagement />);
+    
+    // Wait for Faculty Availability Form
+    await screen.findByText('Faculty Availability Form');
+    
+    // Open invite dialog
+    const inviteButton = await screen.findByText('Invite Faculty');
+    await userEvent.click(inviteButton);
+    
+    // Select a season
+    const seasonSelect = await screen.findByText(/Select Season/i);
+    await userEvent.click(seasonSelect);
+    const seasonOption = await screen.findByText('Spring 2024');
+    await userEvent.click(seasonOption);
+    
+    // Verify candidate appears
+    expect(await screen.findByText('John Doe')).toBeInTheDocument();
+  });
+
+  test('handles candidate sections fetch error', async () => {
+    require('../api/api').candidateSectionsAPI.getCandidateSectionsBySeason.mockRejectedValue(
+      new Error('Failed to fetch')
+    );
+    
+    customRender(<FormManagement />);
+    
+    const inviteButton = await screen.findByRole('button', { name: /Invite Faculty/i });
+    await userEvent.click(inviteButton);
+    
+    // Select a season
+    const seasonSelect = await screen.findByLabelText(/Select Season/i);
+    await userEvent.click(seasonSelect);
+    const seasonOption = await screen.findByText('Spring 2024');
+    await userEvent.click(seasonOption);
+    
+    expect(await screen.findByText(/Failed to load candidates/i)).toBeInTheDocument();
+  });
+});
+
+describe('Import Preferred Faculty', () => {
+  const mockCandidate = {
+    id: 'cand1',
+    candidate_profile: {
+      preferred_faculty: ['fac1', 'fac2']
+    }
+  };
+
+  const mockFacultyForm = {
+    id: 'faculty-availability',
+    title: 'Faculty Availability Form',
+    description: 'Faculty availability form',
+    is_active: true,
+    is_virtual: true
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    
+    const mockForm = {
+      id: 1,
+      title: 'Test Form 1',
+      description: 'A test form',
+      is_active: true,
+      form_fields: [{ id: 'f1', label: 'Field 1', type: 'text' }]
+    };
+
+    // Mock API responses with both forms
+    api.get.mockImplementation((url) => {
+      switch (url) {
+        case '/forms/':
+          return Promise.resolve({ data: [mockForm, mockFacultyForm] });
+        case '/users/':
+          return Promise.resolve({ data: [{ id: 1, email: 'test@test.com' }] });
+        case '/users/?user_type=faculty':
+          return Promise.resolve({ data: [{ id: 'fac1', email: 'faculty@test.com' }] });
+        default:
+          return Promise.resolve({ data: [] });
+      }
+    });
+  });
+
+  test('successfully imports preferred faculty', async () => {
+    // Mock the API responses
+    require('../api/api').usersAPI.getUser.mockResolvedValue({ data: mockCandidate });
+    
+    const mockCandidateSection = {
+      id: 'c1',
+      candidate: { id: 'cand1', first_name: 'John', last_name: 'Doe' }
+    };
+    
+    require('../api/api').seasonsAPI.getSeasons.mockResolvedValue({
+      data: [{ id: 's1', title: 'Spring 2024', end_date: '2099-12-31' }]
+    });
+    
+    require('../api/api').candidateSectionsAPI.getCandidateSectionsBySeason.mockResolvedValue({
+      data: [mockCandidateSection]
+    });
+    
+    await act(async () => {
+      customRender(<FormManagement />);
+    });
+    
+    // Wait for Faculty Availability Form to appear
+    await screen.findByText('Faculty Availability Form');
+    
+    const inviteButton = await screen.findByRole('button', { name: /Invite Faculty/i });
+    await act(async () => {
+      await userEvent.click(inviteButton);
+    });
+    
+    // Wait for dialog to open and buttons to be available
+    await screen.findByText(/Invite Faculty for Availability/i);
+    
+    const importButton = await screen.findByRole('button', { name: /Import Selections/i });
+    await act(async () => {
+      await userEvent.click(importButton);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText(/Imported 2 preferred faculty member/i)).toBeInTheDocument();
+    });
+  });
+
+  test('handles case when candidate has no preferred faculty', async () => {
+    require('../api/api').usersAPI.getUser.mockResolvedValue({
+      data: { id: 'cand1', candidate_profile: { preferred_faculty: [] } }
+    });
+    
+    require('../api/api').seasonsAPI.getSeasons.mockResolvedValue({
+      data: [{ id: 's1', title: 'Spring 2024', end_date: '2099-12-31' }]
+    });
+    
+    await act(async () => {
+      customRender(<FormManagement />);
+    });
+    
+    // Wait for Faculty Availability Form to appear
+    await screen.findByText('Faculty Availability Form');
+    
+    const inviteButton = await screen.findByRole('button', { name: /Invite Faculty/i });
+    await act(async () => {
+      await userEvent.click(inviteButton);
+    });
+    
+    // Wait for dialog to open
+    await screen.findByText(/Invite Faculty for Availability/i);
+    
+    const importButton = await screen.findByRole('button', { name: /Import Selections/i });
+    await act(async () => {
+      await userEvent.click(importButton);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText(/This candidate has not selected any preferred faculty members/i)).toBeInTheDocument();
+    });
+  });
+
+  test('handles case when preferred faculty are not in system', async () => {
+    require('../api/api').usersAPI.getUser.mockResolvedValue({
+      data: { 
+        id: 'cand1',
+        candidate_profile: { preferred_faculty: ['nonexistent1', 'nonexistent2'] }
+      }
+    });
+    
+    require('../api/api').seasonsAPI.getSeasons.mockResolvedValue({
+      data: [{ id: 's1', title: 'Spring 2024', end_date: '2099-12-31' }]
+    });
+    
+    // Mock API to return no faculty
+    api.get.mockImplementation((url) => {
+      if (url === '/forms/') {
+        return Promise.resolve({ data: [mockFacultyForm] }); // Include faculty form
+      }
+      if (url === '/users/?user_type=faculty') {
+        return Promise.resolve({ data: [] }); // No matching faculty in system
+      }
+      return Promise.resolve({ data: [] });
+    });
+    
+    await act(async () => {
+      customRender(<FormManagement />);
+    });
+    
+    // Wait for Faculty Availability Form to appear
+    await screen.findByText('Faculty Availability Form');
+    
+    const inviteButton = await screen.findByRole('button', { name: /Invite Faculty/i });
+    await act(async () => {
+      await userEvent.click(inviteButton);
+    });
+    
+    // Wait for dialog to open
+    await screen.findByText(/Invite Faculty for Availability/i);
+    
+    const importButton = await screen.findByRole('button', { name: /Import Selections/i });
+    await act(async () => {
+      await userEvent.click(importButton);
+    });
+    
+    await waitFor(() => {
+      expect(screen.getByText(/None of the candidate's preferred faculty members are available/i)).toBeInTheDocument();
     });
   });
 });

@@ -383,7 +383,8 @@ const UserManagement = () => {
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete User">
-                      <IconButton 
+                      <IconButton
+                        data-testid="delete-user-button"
                         onClick={() => handleDeleteClick(user)}
                         size="small"
                         sx={{ 
@@ -487,7 +488,8 @@ const UserManagement = () => {
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Delete User">
-                      <IconButton 
+                      <IconButton
+                        data-testid="delete-user-button"
                         onClick={() => handleDeleteClick(user)}
                         size="small"
                         sx={{ 
