@@ -89,6 +89,93 @@ This application allows candidates to register for sessions and administrators t
    yarn start
    ```
 
+## Testing
+
+### Frontend Tests
+
+1. Navigate to the frontend directory:
+   ```bash
+   cd frontend
+   ```
+
+2. Run all tests:
+   ```bash
+   npm test
+   # or
+   yarn test
+   ```
+
+3. Run tests in watch mode (recommended during development):
+   ```bash
+   npm test -- --watch
+   # or
+   yarn test --watch
+   ```
+
+4. Run tests with coverage report:
+   ```bash
+   npm test -- --coverage --watchAll=false
+   # or
+   yarn test --coverage --watchAll=false
+   ```
+
+5. View coverage report:
+   - Open `frontend/coverage/lcov-report/index.html` in your browser
+   - Coverage report shows:
+     * Statement coverage
+     * Branch coverage
+     * Function coverage
+     * Line coverage
+
+6. Run specific test files:
+   ```bash
+   npm test -- path/to/test/file.test.js
+   # or
+   yarn test path/to/test/file.test.js
+   ```
+
+### Backend Tests
+
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+
+2. Activate your virtual environment:
+   ```bash
+   # On Windows
+   venv\Scripts\activate
+   # On macOS/Linux
+   source venv/bin/activate
+   ```
+
+3. Run all tests:
+   ```bash
+   python manage.py test
+   ```
+
+4. Run tests with coverage:
+   ```bash
+   coverage run --source='.' manage.py test
+   ```
+
+5. Generate coverage report:
+   ```bash
+   coverage report
+   ```
+
+6. Generate HTML coverage report:
+   ```bash
+   coverage html
+   ```
+
+7. View coverage report:
+   - Open `backend/htmlcov/index.html` in your browser
+
+8. Run specific test files:
+   ```bash
+   python manage.py test path.to.test.TestClass
+   ```
 ## Running the Application
 
 1. Make sure the Django backend is running (on http://localhost:8000)
@@ -133,8 +220,29 @@ Note: Only users added through the admin interface can access the system. Users 
 1. Pull the latest changes: `git pull origin main`
 2. Create a new branch for your feature: `git checkout -b feature/your-feature-name`
 3. Make your changes
-4. Commit and push your changes: `git push origin feature/your-feature-name`
-5. Create a pull request
+4. Write tests for your changes:
+   - Frontend: Create/update `.test.js` files in the same directory as your components
+   - Backend: Create/update test files in the `tests` directory
+5. Run tests to ensure everything passes:
+   - Frontend: `npm test`
+   - Backend: `python manage.py test`
+6. Check test coverage and add tests if needed
+7. Commit and push your changes: `git push origin feature/your-feature-name`
+8. Create a pull request
+
+## Code Quality Standards
+
+1. Test Coverage Requirements:
+   - Minimum 80% coverage for new code
+   - All critical paths must be tested
+   - Edge cases should be considered and tested
+
+2. Testing Best Practices:
+   - Write descriptive test names
+   - Follow the Arrange-Act-Assert pattern
+   - Mock external dependencies
+   - Test both success and failure cases
+   - Keep tests independent and isolated
 
 ## Additional Notes
 
